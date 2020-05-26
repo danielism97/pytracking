@@ -56,3 +56,42 @@ class AtomBBKLActor(BaseActor):
                  'Loss/bb_ce': loss.item()}
 
         return loss, stats
+
+class AtomDistillationBasicActor(BaseActor):
+    """ Actor for training the IoU-Net in ATOM with basic distillation"""
+    def __init__(self, student_net, teacher_net, objective):
+        """
+        args:
+            net - The network to train
+            objective - The loss function
+        """
+        self.student_net = student_net
+        self.teacher_net = teacher_net
+        self.objective = objective
+
+    def __call__(self, data):
+        """
+        args:
+            data - The input data, should contain the fields 'train_images', 'test_images', 'train_anno',
+                    'test_proposals' and 'proposal_iou'.
+
+        returns:
+            loss    - the training loss
+            states  -  dict containing detailed losses
+        """
+        # Run network to obtain IoU prediction for each proposal in 'test_proposals'
+        iou_student= self.student_net(data['train_images'], data['test_images'], data['train_anno'], data['test_proposals'])
+        iou_teacher= self.teacher_net(data['train_images'], data['test_images'], data['train_anno'], data['test_proposals'])
+
+        iou_student = iou_student.view(-1, iou_student.shape[2])
+        iou_teacher = iou_teacher.view(-1, iou_teacher.shape[2])
+        iou_gt = data['proposal_iou'].view(-1, data['proposal_iou'].shape[2])
+
+        # Compute loss
+        loss = self.objective(iou_student, iou_teacher, iou_gt)
+
+        # Return training stats
+        stats = {'Loss/total': loss.item(),
+                 'Loss/iou': loss.item()}
+
+        return loss, stats

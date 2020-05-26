@@ -177,3 +177,70 @@ class AtomIoUNet(nn.Module):
         c4_t = self.conv4_2t(self.conv4_1t(feat4_t))
 
         return c3_t, c4_t
+
+class AtomSmallIoUNet(AtomIoUNet):
+    """Network module for IoU prediction. Refer to the ATOM paper for an illustration of the architecture.
+    It uses two backbone feature layers as input.
+    args:
+        input_dim:  Feature dimensionality of the two input backbone layers.
+        pred_input_dim:  Dimensionality input the the prediction network.
+        pred_inter_dim:  Intermediate dimensionality in the prediction network."""
+
+    def __init__(self, input_dim=(64,128), pred_input_dim=(128,128), pred_inter_dim=(128,128)):
+        super().__init__(input_dim, pred_input_dim, pred_inter_dim)
+        # _r for reference, _t for test
+        # in: 29x29x64  out: 29x29x64
+        self.conv3_1r = conv(input_dim[0], 64, kernel_size=3, stride=1)
+        # in: 29x29x64  out: 29x29x128
+        self.conv3_1t = conv(input_dim[0], 128, kernel_size=3, stride=1)
+
+        # in: 29x29x128  out: 29x29x128
+        self.conv3_2t = conv(128, pred_input_dim[0], kernel_size=3, stride=1)
+
+        # in: 29x29x64  out:3x3x64
+        self.prroi_pool3r = PrRoIPool2D(3, 3, 1/8)
+        # in: 29x29x128  out:5x5x128
+        self.prroi_pool3t = PrRoIPool2D(5, 5, 1/8)
+
+        # in: 3x3x64  out:1x1x128
+        self.fc3_1r = conv(64, 128, kernel_size=3, stride=1, padding=0)
+
+        # in: 15x15x128  out: 15x15x128
+        self.conv4_1r = conv(input_dim[1], 128, kernel_size=3, stride=1)
+        # in: 15x15x128  out: 15x15x128
+        self.conv4_1t = conv(input_dim[1], 128, kernel_size=3, stride=1)
+
+        # in: 15x15x128  out: 15x15x128
+        self.conv4_2t = conv(128, pred_input_dim[1], kernel_size=3, stride=1)
+
+        # in: 15x15x128  out:1x1x128
+        self.prroi_pool4r = PrRoIPool2D(1, 1, 1/16)
+        # in: 15x15x128  out: 3x3x128
+        self.prroi_pool4t = PrRoIPool2D(3, 3, 1 / 16)
+
+        # in: 1x1x256  out: 1x1x128
+        self.fc34_3r = conv(128 + 128, pred_input_dim[0], kernel_size=1, stride=1, padding=0)
+        # in: 1x1x256  out: 1x1x128
+        self.fc34_4r = conv(128 + 128, pred_input_dim[1], kernel_size=1, stride=1, padding=0)
+
+        # in: 5x5x128  out: 1x1x128
+        self.fc3_rt = LinearBlock(pred_input_dim[0], pred_inter_dim[0], 5)
+        # in: 3x3x128  out: 1x1x128
+        self.fc4_rt = LinearBlock(pred_input_dim[1], pred_inter_dim[1], 3)
+
+        # in: 1x1x256  out: 1x1x1
+        self.iou_predictor = nn.Linear(pred_inter_dim[0]+pred_inter_dim[1], 1, bias=True)
+
+        # Init weights
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight.data, mode='fan_in')
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            elif isinstance(m, nn.BatchNorm2d):
+                # In earlier versions batch norm parameters was initialized with default initialization,
+                # which changed in pytorch 1.2. In 1.1 and earlier the weight was set to U(0,1).
+                # So we use the same initialization here.
+                # m.weight.data.fill_(1)
+                m.weight.data.uniform_()
+                m.bias.data.zero_()

@@ -83,3 +83,18 @@ def atom_resnet50(iou_input_dim=(256,256), iou_inter_dim=(256,256), backbone_pre
                   extractor_grad=False)
 
     return net
+
+@model_constructor
+def atom_resnet18small(iou_input_dim=(128,128), iou_inter_dim=(128,128), backbone_pretrained=False):
+    # backbone
+    backbone_net = backbones.resnet18small(pretrained=backbone_pretrained, inplanes=32)
+
+    # Bounding box regressor
+    iou_predictor = bbmodels.AtomSmallIoUNet(input_dim=(64,128), 
+                                             pred_input_dim=iou_input_dim, 
+                                             pred_inter_dim=iou_inter_dim)
+
+    net = ATOMnet(feature_extractor=backbone_net, bb_regressor=iou_predictor, bb_regressor_layer=['layer2', 'layer3'],
+                  extractor_grad=True)
+
+    return net

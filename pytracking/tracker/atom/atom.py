@@ -61,7 +61,7 @@ class ATOM(BaseTracker):
         self.base_target_sz = self.target_sz / self.target_scale
 
         # Use odd square search area and set sizes
-        feat_max_stride = max(self.params.features.stride())
+        feat_max_stride = max(self.params.features.stride()) # TODO: print and check
         if self.params.get('search_area_shape', 'square') == 'square':
             self.img_sample_sz = torch.round(torch.sqrt(torch.prod(self.base_target_sz * self.params.search_area_scale))) * torch.ones(2)
         elif self.params.search_area_shape == 'initrect':
@@ -301,6 +301,7 @@ class ATOM(BaseTracker):
     def apply_filter(self, sample_x: TensorList):
         return operation.conv2d(sample_x, self.filter, mode='same')
 
+    # TODO: understand this
     def localize_target(self, scores_raw):
         # Weighted sum (if multiple features) with interpolation in fourier domain
         weight = self.fparams.attribute('translation_weight', 1.0)
@@ -480,8 +481,8 @@ class ATOM(BaseTracker):
         if aug_expansion_factor is not None and aug_expansion_factor != 1:
             aug_expansion_sz = (self.img_sample_sz * aug_expansion_factor).long()
             aug_expansion_sz += (aug_expansion_sz - self.img_sample_sz.long()) % 2
-            aug_expansion_sz = aug_expansion_sz.float()
-            aug_output_sz = self.img_sample_sz.long().tolist()
+            aug_expansion_sz = aug_expansion_sz.float() #576, 576
+            aug_output_sz = self.img_sample_sz.long().tolist() #288, 288
 
         # Random shift operator
         get_rand_shift = lambda: None
@@ -493,16 +494,16 @@ class ATOM(BaseTracker):
         self.transforms = [augmentation.Identity(aug_output_sz)]
         if 'shift' in self.params.augmentation:
             self.transforms.extend([augmentation.Translation(shift, aug_output_sz) for shift in self.params.augmentation['shift']])
-        if 'relativeshift' in self.params.augmentation:
+        if 'relativeshift' in self.params.augmentation:#4
             get_absolute = lambda shift: (torch.Tensor(shift) * self.img_sample_sz/2).long().tolist()
             self.transforms.extend([augmentation.Translation(get_absolute(shift), aug_output_sz) for shift in self.params.augmentation['relativeshift']])
-        if 'fliplr' in self.params.augmentation and self.params.augmentation['fliplr']:
+        if 'fliplr' in self.params.augmentation and self.params.augmentation['fliplr']: #1
             self.transforms.append(augmentation.FlipHorizontal(aug_output_sz, get_rand_shift()))
-        if 'blur' in self.params.augmentation:
+        if 'blur' in self.params.augmentation: #5
             self.transforms.extend([augmentation.Blur(sigma, aug_output_sz, get_rand_shift()) for sigma in self.params.augmentation['blur']])
         if 'scale' in self.params.augmentation:
             self.transforms.extend([augmentation.Scale(scale_factor, aug_output_sz, get_rand_shift()) for scale_factor in self.params.augmentation['scale']])
-        if 'rotate' in self.params.augmentation:
+        if 'rotate' in self.params.augmentation: #12
             self.transforms.extend([augmentation.Rotate(angle, aug_output_sz, get_rand_shift()) for angle in self.params.augmentation['rotate']])
 
         # Generate initial samples
@@ -514,7 +515,7 @@ class ATOM(BaseTracker):
                 init_samples[i] = init_samples[i][0:1, ...]
 
         # Add dropout samples
-        if 'dropout' in self.params.augmentation:
+        if 'dropout' in self.params.augmentation: #7
             num, prob = self.params.augmentation['dropout']
             self.transforms.extend(self.transforms[:1]*num)
             for i, use_aug in enumerate(self.fparams.attribute('use_augmentation')):
@@ -548,7 +549,7 @@ class ATOM(BaseTracker):
             self.projection_matrix = TensorList([None]*len(x))
 
     def init_label_function(self, train_x):
-        # Allocate label function
+        # Allocate label function # 1x250x1xHxW
         self.y = TensorList([x.new_zeros(self.params.sample_memory_size, 1, x.shape[2], x.shape[3]) for x in train_x])
 
         # Output sigma factor
