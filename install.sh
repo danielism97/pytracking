@@ -19,6 +19,11 @@ conda activate $conda_env_name
 
 echo ""
 echo ""
+echo "****************** Installing ipykernel ******************"
+conda install ipykernel
+
+echo ""
+echo ""
 echo "****************** Installing pytorch with cuda10 ******************"
 conda install -y pytorch torchvision cudatoolkit=10.0 -c pytorch
 
@@ -93,16 +98,16 @@ echo ""
 echo "****************** Downloading networks ******************"
 mkdir pytracking/networks
 
-echo ""
-echo ""
-echo "****************** DiMP50 Network ******************"
-gdown https://drive.google.com/uc\?id\=1qgachgqks2UGjKx-GdO1qylBDdB1f9KN -O pytracking/networks/dimp50.pth
+# echo ""
+# echo ""
+# echo "****************** DiMP50 Network ******************"
+# gdown https://drive.google.com/uc\?id\=1qgachgqks2UGjKx-GdO1qylBDdB1f9KN -O pytracking/networks/dimp50.pth
 # gdown https://drive.google.com/uc\?id\=1MAjrRJDCbL0DSjUKFyDkUuYS1-cYBNjk -O pytracking/networks/dimp18.pth
 
-# echo ""
-# echo ""
-# echo "****************** ATOM Network ******************"
-# gdown https://drive.google.com/uc\?id\=1VNyr-Ds0khjM0zaq6lU-xfY74-iWxBvU -O pytracking/networks/atom_default.pth
+echo ""
+echo ""
+echo "****************** ATOM Network ******************"
+gdown https://drive.google.com/uc\?id\=1VNyr-Ds0khjM0zaq6lU-xfY74-iWxBvU -O pytracking/networks/atom_default.pth
 
 # echo ""
 # echo ""
