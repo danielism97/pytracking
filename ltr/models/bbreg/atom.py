@@ -2,11 +2,12 @@ import torch.nn as nn
 import ltr.models.backbone as backbones
 import ltr.models.bbreg as bbmodels
 from ltr import model_constructor
+from collections import OrderedDict
 
 
 class ATOMnet(nn.Module):
     """ ATOM network module"""
-    def __init__(self, feature_extractor, bb_regressor, bb_regressor_layer, extractor_grad=True):
+    def __init__(self, feature_extractor, bb_regressor, bb_regressor_layer, extractor_grad=True, regressor_grad=True):
         """
         args:
             feature_extractor - backbone feature extractor
@@ -24,8 +25,13 @@ class ATOMnet(nn.Module):
         if not extractor_grad:
             for p in self.feature_extractor.parameters():
                 p.requires_grad_(False)
+        
+        if not regressor_grad:
+            for p in self.bb_regressor.parameters():
+                p.requires_grad_(False)
 
-    def forward(self, train_imgs, test_imgs, train_bb, test_proposals):
+
+    def forward(self, train_imgs, test_imgs, train_bb, test_proposals, mode=None):
         """ Forward pass
         Note: If the training is done in sequence mode, that is, test_imgs.dim() == 5, then the batch dimension
         corresponds to the first dimensions. test_imgs is thus of the form [sequence, batch, feature, row, col]
@@ -35,21 +41,29 @@ class ATOMnet(nn.Module):
         num_test_images = test_imgs.shape[0] if test_imgs.dim() == 5 else 1
 
         # Extract backbone features
-        train_feat = self.extract_backbone_features(train_imgs.reshape(-1, *train_imgs.shape[-3:]))
-        test_feat = self.extract_backbone_features(test_imgs.reshape(-1, *test_imgs.shape[-3:]))
+        train_feat = self.extract_backbone_features(train_imgs.reshape(-1, *train_imgs.shape[-3:]), mode=mode)
+        test_feat = self.extract_backbone_features(test_imgs.reshape(-1, *test_imgs.shape[-3:]), mode=mode)
 
-        train_feat_iou = [feat for feat in train_feat.values()]
-        test_feat_iou = [feat for feat in test_feat.values()]
+        # train_feat_iou = [feat for feat in train_feat.values()]
+        # test_feat_iou = [feat for feat in test_feat.values()]
+        train_feat_iou = [train_feat[layer] for layer in self.bb_regressor_layer]
+        test_feat_iou = [test_feat[layer] for layer in self.bb_regressor_layer]
 
         # Obtain iou prediction
         iou_pred = self.bb_regressor(train_feat_iou, test_feat_iou,
                                      train_bb.reshape(num_train_images, num_sequences, 4),
                                      test_proposals.reshape(num_train_images, num_sequences, -1, 4))
+
+        if mode == 'train':
+            return iou_pred, train_feat, test_feat
+            
         return iou_pred
 
-    def extract_backbone_features(self, im, layers=None):
+    def extract_backbone_features(self, im, layers=None, mode=None):
         if layers is None:
             layers = self.bb_regressor_layer
+        if mode == 'train':
+            layers = ['conv1', 'layer1', 'layer2', 'layer3']
         return self.feature_extractor(im, layers)
 
     def extract_features(self, im, layers):
@@ -66,7 +80,7 @@ def atom_resnet18(iou_input_dim=(256,256), iou_inter_dim=(256,256), backbone_pre
     iou_predictor = bbmodels.AtomIoUNet(pred_input_dim=iou_input_dim, pred_inter_dim=iou_inter_dim)
 
     net = ATOMnet(feature_extractor=backbone_net, bb_regressor=iou_predictor, bb_regressor_layer=['layer2', 'layer3'],
-                  extractor_grad=False)
+                  extractor_grad=False, regressor_grad=False)
 
     return net
 
@@ -95,6 +109,6 @@ def atom_resnet18small(iou_input_dim=(128,128), iou_inter_dim=(128,128), backbon
                                              pred_inter_dim=iou_inter_dim)
 
     net = ATOMnet(feature_extractor=backbone_net, bb_regressor=iou_predictor, bb_regressor_layer=['layer2', 'layer3'],
-                  extractor_grad=True)
+                  extractor_grad=True, regressor_grad=True)
 
     return net

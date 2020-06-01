@@ -20,7 +20,7 @@ conda activate $conda_env_name
 echo ""
 echo ""
 echo "****************** Installing ipykernel ******************"
-conda install ipykernel
+conda install -y ipykernel
 
 echo ""
 echo ""

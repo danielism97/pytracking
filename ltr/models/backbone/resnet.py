@@ -287,5 +287,6 @@ def resnet18small(output_layers=None, pretrained=False, **kwargs):
     model = ResNet(BasicBlock, [2, 2, 2, 2], output_layers, **kwargs)
 
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
+        # model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
+        pass
     return model

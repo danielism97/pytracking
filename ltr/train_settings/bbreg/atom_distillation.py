@@ -4,14 +4,15 @@ from ltr.dataset import Lasot, TrackingNet, MSCOCOSeq
 from ltr.data import processing, sampler, LTRLoader
 import ltr.models.bbreg.atom as atom_models
 from ltr import actors
-from ltr.trainers import LTRTrainer
+from ltr.trainers import LTRDistillationTrainer
 import ltr.data.transforms as tfm
 from ltr.models.loss import distillation
+from ltr.admin import loading
 
 
 def run(settings):
     # Most common settings are assigned in the settings struct
-    settings.description = 'distilled (basic) ATOM IoUNet with default settings according to the paper.'
+    settings.description = 'distilled ATOM IoUNet with default settings according to the paper.'
     settings.batch_size = 64
     settings.num_workers = 8
     settings.print_interval = 1
@@ -81,16 +82,20 @@ def run(settings):
 
     # Create network and actor
     teacher_net = atom_models.atom_resnet18(backbone_pretrained=True)
+    teacher_path = '/content/pytracking/pytracking/networks/atom_default.pth'
+    print('*******************Teacher net loaded successfully*******************')
+    teacher_net = loading.load_weights(teacher_net, teacher_path, strict=True)
     student_net = atom_models.atom_resnet18small(backbone_pretrained=False)
-    objective = distillation.DistillationBasic(reg_loss=nn.MSELoss(), threshold_ah=0.005)
-    actor = actors.AtomDistillationBasicActor(student_net, teacher_net, objective)
+    objective = distillation.TSKDLoss(reg_loss=nn.MSELoss(), threshold_ah=0.005)
+    actor = actors.AtomDistillationActor(student_net, teacher_net, objective)
 
     # Optimizer
-    optimizer = optim.Adam(actor.student_net.bb_regressor.parameters(), lr=1e-3)
+    optimizer = optim.Adam([actor.student_net.bb_regressor.parameters(), 
+                            actor.student_net.feature_extractor.parameters()], lr=1e-3)
     lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.2)
 
     # Create trainer
-    trainer = LTRTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
+    trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
     # Run training (set fail_safe=False if you are debugging)
     trainer.train(50, load_latest=True, fail_safe=True)
