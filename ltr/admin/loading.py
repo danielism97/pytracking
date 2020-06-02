@@ -109,9 +109,13 @@ def load_network(network_dir=None, checkpoint=None, constructor_fun_name=None, c
 
 
 def load_weights(net, path, strict=True):
+    _setup_legacy_env()
+    
     checkpoint_dict = torch.load(path)
     weight_dict = checkpoint_dict['net']
     net.load_state_dict(weight_dict, strict=strict)
+
+    _cleanup_legacy_env()
     return net
 
 

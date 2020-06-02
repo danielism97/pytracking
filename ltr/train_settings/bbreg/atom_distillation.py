@@ -80,11 +80,13 @@ def run(settings):
     loader_val = LTRLoader('val', dataset_val, training=False, batch_size=settings.batch_size, num_workers=settings.num_workers,
                            shuffle=False, drop_last=True, epoch_interval=5, stack_dim=1)
 
-    # Create network and actor
+    # Load teacher network
     teacher_net = atom_models.atom_resnet18(backbone_pretrained=True)
     teacher_path = '/content/pytracking/pytracking/networks/atom_default.pth'
-    print('*******************Teacher net loaded successfully*******************')
     teacher_net = loading.load_weights(teacher_net, teacher_path, strict=True)
+    print('*******************Teacher net loaded successfully*******************')
+    
+    # Create student network and actor
     student_net = atom_models.atom_resnet18small(backbone_pretrained=False)
     objective = distillation.TSKDLoss(reg_loss=nn.MSELoss(), threshold_ah=0.005)
     actor = actors.AtomDistillationActor(student_net, teacher_net, objective)
