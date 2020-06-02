@@ -39,7 +39,7 @@ class Lasot(BaseVideoDataset):
         super().__init__('LaSOT', root, image_loader)
 
         # Keep a list of all classes
-        self.class_list = [f for f in os.listdir(self.root)]
+        self.class_list = ['electricfan']#[f for f in os.listdir(self.root)]
         self.class_to_id = {cls_name: cls_id for cls_id, cls_name in enumerate(self.class_list)}
 
         self.sequence_list = self._build_sequence_list(vid_ids, split)
