@@ -10,6 +10,7 @@ from pytracking.evaluation import get_dataset
 from pytracking.evaluation.running import run_dataset
 from pytracking.evaluation import Tracker
 
+from pytracking.analysis.plot_results import plot_results, print_results, print_per_sequence_results
 
 def run_tracker(tracker_name, tracker_param, run_id=None, dataset_name='otb', sequence=None, debug=0, threads=0,
                 visdom_info=None):
