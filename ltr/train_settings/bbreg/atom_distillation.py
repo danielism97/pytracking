@@ -100,4 +100,4 @@ def run(settings):
     trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
     # Run training (set fail_safe=False if you are debugging)
-    trainer.train(50, load_latest=True, fail_safe=True)
+    trainer.train(50, load_latest=False, fail_safe=False)
