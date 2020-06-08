@@ -8,9 +8,9 @@ def create_default_local_file():
 
     empty_str = '\'\''
     default_settings = OrderedDict({
-        'workspace_dir': empty_str,
+        'workspace_dir': '\'/content\'',
         'tensorboard_dir': 'self.workspace_dir + \'/tensorboard/\'',
-        'lasot_dir': empty_str,
+        'lasot_dir': '\'/content\'',
         'got10k_dir': empty_str,
         'trackingnet_dir': empty_str,
         'coco_dir': empty_str,
