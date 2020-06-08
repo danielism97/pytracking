@@ -134,3 +134,39 @@ class TSKDLoss(nn.Module):
         loss += self.w_ah * self.adaptive_hard_loss(**iou)
         loss += self.w_tr * self.target_response_loss(**features)
         return loss
+
+class TSsKDLoss(nn.Module):
+    """
+    Objective for TSsKD distillation.
+    """
+    def __init__(self, beta=0.5, sigma=0.9, h=0.005, **kwargs):
+        super().__init__()
+        # subcomponent losses, can turn off adaptive hard by setting threshold to None
+        self.loss_TS = TSKDLoss(**kwargs)
+        self.reg_loss = nn.SmoothL1Loss()
+        
+        self.beta = beta
+        self.sigma = sigma
+        self.h = h
+
+            
+
+    def forward(self, iou_dull, iou_intel, features_dull, features_intel, epoch):
+        loss_TS_dull = self.loss_TS(iou_dull, features_dull)
+        loss_TS_intel = self.loss_TS(iou_intel, features_intel)
+
+        loss_SS = self.reg_loss(iou_dull['iou_student'], iou_intel['iou_student'])
+
+        loss_teacher = self.reg_loss(iou_dull['iou_teacher'], iou_dull['iou_gt'])
+        loss_dull = self.reg_loss(iou_dull['iou_student'], iou_dull['iou_gt'])
+        loss_intel = self.reg_loss(iou_intel['iou_student'], iou_intel['iou_gt'])
+
+        sigma_dull = self.sigma**epoch if loss_dull - loss_teacher < self.h else 0.
+        sigma_intel = self.sigma**epoch if loss_intel - loss_teacher < self.h else 0.
+
+        dull = loss_TS_dull + sigma_dull * loss_SS
+        intel = loss_TS_intel + self.beta * sigma_intel * loss_SS
+
+        loss = dull + intel
+
+        return loss

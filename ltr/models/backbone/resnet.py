@@ -273,7 +273,7 @@ def resnet50(output_layers=None, pretrained=False, **kwargs):
         model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
     return model
 
-def resnet18small(output_layers=None, pretrained=False, **kwargs):
+def resnet18small(output_layers=None, pretrained=False, inplanes=32, **kwargs):
     """Constructs a ResNet-18-small model.
     """
 
@@ -284,7 +284,25 @@ def resnet18small(output_layers=None, pretrained=False, **kwargs):
             if l not in ['conv1', 'layer1', 'layer2', 'layer3', 'layer4', 'fc']:
                 raise ValueError('Unknown layer: {}'.format(l))
 
-    model = ResNet(BasicBlock, [2, 2, 2, 2], output_layers, **kwargs)
+    model = ResNet(BasicBlock, [2, 2, 2, 2], output_layers, inplanes=inplanes, **kwargs)
+
+    if pretrained:
+        # model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
+        pass
+    return model
+
+def resnet18tiny(output_layers=None, pretrained=False, inplanes=8, **kwargs):
+    """Constructs a ResNet-18-small model.
+    """
+
+    if output_layers is None:
+        output_layers = ['default']
+    else:
+        for l in output_layers:
+            if l not in ['conv1', 'layer1', 'layer2', 'layer3', 'layer4', 'fc']:
+                raise ValueError('Unknown layer: {}'.format(l))
+
+    model = ResNet(BasicBlock, [2, 2, 2, 2], output_layers, inplanes=inplanes, **kwargs)
 
     if pretrained:
         # model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))

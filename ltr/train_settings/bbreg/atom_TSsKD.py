@@ -87,17 +87,20 @@ def run(settings):
     print('*******************Teacher net loaded successfully*******************')
     
     # Create student network and actor
-    student_net = atom_models.atom_resnet18tiny(backbone_pretrained=False)
-    objective = distillation.TSKDLoss(reg_loss=nn.MSELoss(), threshold_ah=0.005)
-    actor = actors.AtomDistillationActor(student_net, teacher_net, objective)
+    dull_student_net = atom_models.atom_resnet18tiny(backbone_pretrained=False)
+    intel_student_net = atom_models.atom_resnet18small(backbone_pretrained=False)
+    objective = distillation.TSsKDLoss(beta=0.5, sigma=0.9, h=0.005, reg_loss=nn.MSELoss(), threshold_ah=0.005)
+    actor = actors.AtomTSsKDActor(dull_student_net, intel_student_net, teacher_net, objective)
 
     # Optimizer
-    optimizer = optim.Adam([actor.student_net.bb_regressor.parameters(), 
-                            actor.student_net.feature_extractor.parameters()], lr=1e-3)
+    optimizer = optim.Adam([{'params': actor.dull_student_net.feature_extractor.parameters()},
+                            {'params': actor.dull_student_net.bb_regressor.parameters()},
+                            {'params': actor.intel_student_net.feature_extractor.parameters()},
+                            {'params': actor.intel_student_net.bb_regressor.parameters()}], lr=1e-3)
     lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.2)
 
     # Create trainer
     trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
     # Run training (set fail_safe=False if you are debugging)
-    trainer.train(50, load_latest=True, fail_safe=True)
+    trainer.train(50, load_latest=False, fail_safe=False)
