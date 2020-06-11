@@ -66,14 +66,14 @@ def run(settings):
 
     # The sampler for training
     dataset_train = sampler.ATOMSampler([lasot_train], [1],
-                                samples_per_epoch=1000*settings.batch_size, max_gap=50, processing=data_processing_train)
+                                samples_per_epoch=1*settings.batch_size, max_gap=50, processing=data_processing_train)
 
     # The loader for training
     loader_train = LTRLoader('train', dataset_train, training=True, batch_size=settings.batch_size, num_workers=settings.num_workers,
                              shuffle=True, drop_last=True, stack_dim=1)
 
     # The sampler for validation
-    dataset_val = sampler.ATOMSampler([trackingnet_val], [1], samples_per_epoch=500*settings.batch_size, max_gap=50,
+    dataset_val = sampler.ATOMSampler([trackingnet_val], [1], samples_per_epoch=1*settings.batch_size, max_gap=50,
                               processing=data_processing_val)
 
     # The loader for validation
@@ -100,4 +100,4 @@ def run(settings):
     trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
     # Run training (set fail_safe=False if you are debugging)
-    trainer.train(50, load_latest=False, fail_safe=False)
+    trainer.train(1, load_latest=False, fail_safe=False)

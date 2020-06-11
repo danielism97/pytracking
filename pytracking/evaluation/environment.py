@@ -16,7 +16,7 @@ class EnvSettings:
         self.tpl_path = ''
         self.vot_path = ''
         self.got10k_path = ''
-        self.lasot_path = ''
+        self.lasot_path = '/content'
         self.trackingnet_path = ''
         self.davis_dir = ''
         self.youtubevos_dir = ''
