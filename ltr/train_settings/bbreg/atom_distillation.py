@@ -92,8 +92,8 @@ def run(settings):
     actor = actors.AtomDistillationActor(student_net, teacher_net, objective)
 
     # Optimizer
-    optimizer = optim.Adam([actor.student_net.bb_regressor.parameters(), 
-                            actor.student_net.feature_extractor.parameters()], lr=1e-3)
+    optimizer = optim.Adam([{'params': actor.student_net.feature_extractor.parameters()},
+                            {'params': actor.student_net.bb_regressor.parameters()}], lr=1e-3)
     lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.2)
 
     # Create trainer
