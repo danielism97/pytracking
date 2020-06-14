@@ -133,7 +133,7 @@ class ATOMProcessing(BaseProcessing):
             jittered_anno = [self._get_jittered_box(a, s) for a in data[s + '_anno']]
 
             # Crop image region centered at jittered_anno box
-            crops, boxes = prutils.jittered_center_crop(data[s + '_images'], jittered_anno, data[s + '_anno'],
+            crops, boxes, _ = prutils.jittered_center_crop(data[s + '_images'], jittered_anno, data[s + '_anno'],
                                                         self.search_area_factor, self.output_sz)
 
             # Apply transforms

@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 from torch.nn import functional as F
 from ltr.external.PreciseRoIPooling.pytorch.prroi_pool import PrRoIPool2D
+from ltr.external.PreciseRoIPooling.pytorch.prroi_pool.functional import prroi_pool2d
 import math
 
 
@@ -54,33 +55,32 @@ class TargetResponseLoss(nn.Module):
         target_bb -- Target boxes (x,y,w,h) in image coords in the reference samples. Dims (images, sequences, 4).
         """
         # TODO: add error checking/handling
-        loss = 0
+        num_sequences = target_bb.shape[1]
+        target_bb = target_bb[0,...] # batch x 4
+        batch_index = torch.arange(target_bb.shape[0], dtype=torch.float32).reshape(-1, 1).to(target_bb.device)
+        target_bb = target_bb.clone()
+        target_bb[:, 2:4] = target_bb[:, 0:2] + target_bb[:, 2:4]
+        roi = torch.cat((batch_index, target_bb), dim=1)
+
+        loss = 0.
         for idx, layer in enumerate(self.match_layers, 1):
             # calculate scale factor and approx. target patch size, define PrROIPool
             downsample = (1/2)**idx
             patch_sz = math.ceil(58 * downsample)
-            patch_sz = patch_sz + 1 if (patch_sz % 2) is 0 else patch_sz
+            patch_sz = patch_sz + 1 if (patch_sz % 2) == 0 else patch_sz
 
-            prroi = PrRoIPool2D(patch_sz, patch_sz, downsample)
+            # prroi = PrRoIPool2D(patch_sz, patch_sz, downsample)
 
             # retrieve f_s and f_t
-            num_sequences = target_bb.shape[1]
-
-            ref_feat_t = ref_feats_t[layer].reshape(-1, num_sequences, *ref_feat_t.shape[-3:])[0,...]
+            ref_feat_t = ref_feats_t[layer].reshape(-1, num_sequences, *ref_feats_t[layer].shape[-3:])[0,...]
             test_feat_t = test_feats_t[layer] # batch x channel x sz x sz
 
-            ref_feat_s = ref_feats_s[layer].reshape(-1, num_sequences, *ref_feat_s.shape[-3:])[0,...]
+            ref_feat_s = ref_feats_s[layer].reshape(-1, num_sequences, *ref_feats_s[layer].shape[-3:])[0,...]
             test_feat_s = test_feats_s[layer] # batch x channel x sz x sz
 
             # get target patch from ref img feat by PrROI pooling
-            target_bb = target_bb[0,...] # batch x 4
-            batch_index = torch.arange(target_bb.shape[0], dtype=torch.float32).reshape(-1, 1).to(target_bb.device)
-            target_bb = target_bb.clone()
-            target_bb[:, 2:4] = target_bb[:, 0:2] + target_bb[:, 2:4]
-            roi = torch.cat((batch_index, target_bb), dim=1)
-            
-            target_patch_t = prroi(ref_feat_t, roi) # batch x channel x patch_sz x patch_sz 
-            target_patch_s = prroi(ref_feat_s, roi) # batch x channel x patch_sz x patch_sz 
+            target_patch_t = prroi_pool2d(ref_feat_t, roi, patch_sz, patch_sz, downsample) # batch x channel x patch_sz x patch_sz 
+            target_patch_s = prroi_pool2d(ref_feat_s, roi, patch_sz, patch_sz, downsample) # batch x channel x patch_sz x patch_sz 
 
             # cross-correlate target patch with test img feat to get weight map
             p = int((patch_sz - 1) / 2)
@@ -88,10 +88,12 @@ class TargetResponseLoss(nn.Module):
             batch, cin_t, H, W = test_feat_t.shape
             weight_t = F.conv2d(test_feat_t.view(1, batch*cin_t, H, W), target_patch_t, padding=p, groups=batch)
             weight_t = weight_t.permute([1,0,2,3]) # batch x 1 x sz x sz
+            weight_t = weight_t / torch.sum(weight_t)
 
             batch, cin_s, H, W = test_feat_s.shape
             weight_s = F.conv2d(test_feat_s.view(1, batch*cin_s, H, W), target_patch_s, padding=p, groups=batch)
             weight_s = weight_s.permute([1,0,2,3]) # batch x 1 x sz x sz
+            weight_s = weight_s / torch.sum(weight_s)
 
             # mult weight map with test img feat and stack layers
             test_Q_t = torch.sum(torch.abs(test_feat_t * weight_t), dim=1) # batch x sz x sz
@@ -130,11 +132,10 @@ class TSKDLoss(nn.Module):
             
 
     def forward(self, iou, features):
-        loss = self.w_ts * self.teacher_soft_loss(iou['student'], iou['teacher'])
+        loss = self.w_ts * self.teacher_soft_loss(iou['iou_student'], iou['iou_teacher'])
         loss += self.w_ah * self.adaptive_hard_loss(**iou)
         loss += self.w_tr * self.target_response_loss(**features)
         return loss
-
 class TSsKDLoss(nn.Module):
     """
     Objective for TSsKD distillation.

@@ -124,14 +124,15 @@ python -c "from ltr.admin.environment import create_default_local_file; create_d
 echo ""
 echo ""
 echo "****************** Installing jpeg4py ******************"
-while true; do
-    read -p "Install jpeg4py for reading images? This step required sudo privilege. Installing jpeg4py is optional, however recommended. [y,n]  " install_flag
-    case $install_flag in
-        [Yy]* ) sudo apt-get install libturbojpeg; break;;
-        [Nn]* ) echo "Skipping jpeg4py installation!"; break;;
-        * ) echo "Please answer y or n  ";;
-    esac
-done
+sudo apt-get install libturbojpeg
+# while true; do
+#     read -p "Install jpeg4py for reading images? This step required sudo privilege. Installing jpeg4py is optional, however recommended. [y,n]  " install_flag
+#     case $install_flag in
+#         [Yy]* ) sudo apt-get install libturbojpeg; break;;
+#         [Nn]* ) echo "Skipping jpeg4py installation!"; break;;
+#         * ) echo "Please answer y or n  ";;
+#     esac
+# done
 
 echo ""
 echo ""

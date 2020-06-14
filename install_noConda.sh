@@ -1,27 +1,27 @@
 echo ""
 echo ""
 echo "****************** Installing ipykernel ******************"
-pip install -y ipykernel
+pip install ipykernel
 
 echo ""
 echo ""
 echo "****************** Installing pytorch with cuda10 ******************"
-pip install -y pytorch torchvision cudatoolkit=10.0 -c pytorch
+pip install torch===1.2.0 torchvision===0.4.0 -f https://download.pytorch.org/whl/torch_stable.html
 
 echo ""
 echo ""
 echo "****************** Installing matplotlib ******************"
-pip install -y matplotlib
+pip install matplotlib
 
 echo ""
 echo ""
 echo "****************** Installing pandas ******************"
-pip install -y pandas
+pip install pandas
 
 echo ""
 echo ""
 echo "****************** Installing tqdm ******************"
-pip install -y tqdm
+pip install tqdm
 
 echo ""
 echo ""
@@ -56,7 +56,7 @@ pip install gdown
 echo ""
 echo ""
 echo "****************** Installing cython ******************"
-pip install -y cython
+pip install cython
 
 echo ""
 echo ""
