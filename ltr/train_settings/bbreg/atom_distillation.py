@@ -88,7 +88,7 @@ def run(settings):
     
     # Create student network and actor
     student_net = atom_models.atom_resnet18tiny(backbone_pretrained=False)
-    objective = distillation.TSKDLoss(reg_loss=nn.MSELoss(), threshold_ah=0.005)
+    objective = distillation.TSKDLoss(reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_tr=100., threshold_ah=0.005)
     actor = actors.AtomDistillationActor(student_net, teacher_net, objective)
 
     # Optimizer
