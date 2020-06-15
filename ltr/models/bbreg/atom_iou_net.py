@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 from ltr.models.layers.blocks import LinearBlock
 from ltr.external.PreciseRoIPooling.pytorch.prroi_pool import PrRoIPool2D
+from torchvision.ops import RoIPool
 
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
@@ -20,7 +21,7 @@ class AtomIoUNet(nn.Module):
         pred_input_dim:  Dimensionality input the the prediction network.
         pred_inter_dim:  Intermediate dimensionality in the prediction network."""
 
-    def __init__(self, input_dim=(128,256), pred_input_dim=(256,256), pred_inter_dim=(256,256)):
+    def __init__(self, input_dim=(128,256), pred_input_dim=(256,256), pred_inter_dim=(256,256), cpu=False):
         super().__init__()
         # _r for reference, _t for test
         self.conv3_1r = conv(input_dim[0], 128, kernel_size=3, stride=1)
@@ -28,8 +29,12 @@ class AtomIoUNet(nn.Module):
 
         self.conv3_2t = conv(256, pred_input_dim[0], kernel_size=3, stride=1)
 
-        self.prroi_pool3r = PrRoIPool2D(3, 3, 1/8)
-        self.prroi_pool3t = PrRoIPool2D(5, 5, 1/8)
+        if cpu:
+            self.prroi_pool3r = RoIPool((3, 3), 1/8)
+            self.prroi_pool3t = RoIPool((5, 5), 1/8)
+        else:
+            self.prroi_pool3r = PrRoIPool2D(3, 3, 1/8)
+            self.prroi_pool3t = PrRoIPool2D(5, 5, 1/8)
 
         self.fc3_1r = conv(128, 256, kernel_size=3, stride=1, padding=0)
 
@@ -38,8 +43,12 @@ class AtomIoUNet(nn.Module):
 
         self.conv4_2t = conv(256, pred_input_dim[1], kernel_size=3, stride=1)
 
-        self.prroi_pool4r = PrRoIPool2D(1, 1, 1/16)
-        self.prroi_pool4t = PrRoIPool2D(3, 3, 1 / 16)
+        if cpu:
+            self.prroi_pool4r = RoIPool((1, 1), 1/16)
+            self.prroi_pool4t = RoIPool((3, 3), 1 / 16)
+        else:
+            self.prroi_pool4r = PrRoIPool2D(1, 1, 1/16)
+            self.prroi_pool4t = PrRoIPool2D(3, 3, 1 / 16)
 
         self.fc34_3r = conv(256 + 256, pred_input_dim[0], kernel_size=1, stride=1, padding=0)
         self.fc34_4r = conv(256 + 256, pred_input_dim[1], kernel_size=1, stride=1, padding=0)
@@ -186,7 +195,7 @@ class AtomSmallIoUNet(AtomIoUNet):
         pred_input_dim:  Dimensionality input the the prediction network.
         pred_inter_dim:  Intermediate dimensionality in the prediction network."""
 
-    def __init__(self, input_dim=(64,128), pred_input_dim=(128,128), pred_inter_dim=(128,128)):
+    def __init__(self, input_dim=(64,128), pred_input_dim=(128,128), pred_inter_dim=(128,128), cpu=False):
         super().__init__(input_dim, pred_input_dim, pred_inter_dim)
         # _r for reference, _t for test
         # in: 36x36x64  out: 36x36x64
@@ -197,10 +206,14 @@ class AtomSmallIoUNet(AtomIoUNet):
         # in: 36x36x128  out: 36x36x128
         self.conv3_2t = conv(128, pred_input_dim[0], kernel_size=3, stride=1)
 
-        # in: 36x36x64  out:3x3x64
-        self.prroi_pool3r = PrRoIPool2D(3, 3, 1/8)
-        # in: 36x36x128  out:5x5x128
-        self.prroi_pool3t = PrRoIPool2D(5, 5, 1/8)
+        if cpu:
+            self.prroi_pool3r = RoIPool((3, 3), 1/8)
+            self.prroi_pool3t = RoIPool((5, 5), 1/8)
+        else:
+            # in: 36x36x64  out:3x3x64
+            self.prroi_pool3r = PrRoIPool2D(3, 3, 1/8)
+            # in: 36x36x128  out:5x5x128
+            self.prroi_pool3t = PrRoIPool2D(5, 5, 1/8)
 
         # in: 3x3x64  out:1x1x128
         self.fc3_1r = conv(64, 128, kernel_size=3, stride=1, padding=0)
@@ -213,10 +226,14 @@ class AtomSmallIoUNet(AtomIoUNet):
         # in: 18x18x128  out: 18x18x128
         self.conv4_2t = conv(128, pred_input_dim[1], kernel_size=3, stride=1)
 
-        # in: 18x18x128  out:1x1x128
-        self.prroi_pool4r = PrRoIPool2D(1, 1, 1/16)
-        # in: 18x18x128  out: 3x3x128
-        self.prroi_pool4t = PrRoIPool2D(3, 3, 1 / 16)
+        if cpu:
+            self.prroi_pool4r = RoIPool((1, 1), 1/16)
+            self.prroi_pool4t = RoIPool((3, 3), 1 / 16)
+        else:
+            # in: 18x18x128  out:1x1x128
+            self.prroi_pool4r = PrRoIPool2D(1, 1, 1/16)
+            # in: 18x18x128  out: 3x3x128
+            self.prroi_pool4t = PrRoIPool2D(3, 3, 1 / 16)
 
         # in: 1x1x256  out: 1x1x128
         self.fc34_3r = conv(128 + 128, pred_input_dim[0], kernel_size=1, stride=1, padding=0)
@@ -253,7 +270,7 @@ class AtomTinyIoUNet(AtomIoUNet):
         pred_input_dim:  Dimensionality input the the prediction network.
         pred_inter_dim:  Intermediate dimensionality in the prediction network."""
 
-    def __init__(self, input_dim=(16,32), pred_input_dim=(32,32), pred_inter_dim=(32,32)):
+    def __init__(self, input_dim=(16,32), pred_input_dim=(32,32), pred_inter_dim=(32,32), cpu=False):
         super().__init__(input_dim, pred_input_dim, pred_inter_dim)
         # _r for reference, _t for test
         # in: 36x36x16  out: 36x36x16
@@ -264,10 +281,14 @@ class AtomTinyIoUNet(AtomIoUNet):
         # in: 36x36x32  out: 36x36x32
         self.conv3_2t = conv(32, pred_input_dim[0], kernel_size=3, stride=1)
 
-        # in: 36x36x16  out:3x3x16
-        self.prroi_pool3r = PrRoIPool2D(3, 3, 1/8)
-        # in: 36x36x32  out:5x5x32
-        self.prroi_pool3t = PrRoIPool2D(5, 5, 1/8)
+        if cpu:
+            self.prroi_pool3r = RoIPool((3, 3), 1/8)
+            self.prroi_pool3t = RoIPool((5, 5), 1/8)
+        else:
+            # in: 36x36x16  out:3x3x16
+            self.prroi_pool3r = PrRoIPool2D(3, 3, 1/8)
+            # in: 36x36x32  out:5x5x32
+            self.prroi_pool3t = PrRoIPool2D(5, 5, 1/8)
 
         # in: 3x3x16  out:1x1x32
         self.fc3_1r = conv(16, 32, kernel_size=3, stride=1, padding=0)
@@ -280,10 +301,14 @@ class AtomTinyIoUNet(AtomIoUNet):
         # in: 18x18x32  out: 18x18x32
         self.conv4_2t = conv(32, pred_input_dim[1], kernel_size=3, stride=1)
 
-        # in: 18x18x32  out:1x1x32
-        self.prroi_pool4r = PrRoIPool2D(1, 1, 1/16)
-        # in: 18x18x32  out: 3x3x32
-        self.prroi_pool4t = PrRoIPool2D(3, 3, 1 / 16)
+        if cpu:
+            self.prroi_pool4r = RoIPool((1, 1), 1/16)
+            self.prroi_pool4t = RoIPool((3, 3), 1 / 16)
+        else:
+            # in: 18x18x32  out:1x1x32
+            self.prroi_pool4r = PrRoIPool2D(1, 1, 1/16)
+            # in: 18x18x32  out: 3x3x32
+            self.prroi_pool4t = PrRoIPool2D(3, 3, 1 / 16)
 
         # in: 1x1x64  out: 1x1x32
         self.fc34_3r = conv(32 + 32, pred_input_dim[0], kernel_size=1, stride=1, padding=0)
