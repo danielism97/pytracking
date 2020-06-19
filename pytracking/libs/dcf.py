@@ -58,6 +58,23 @@ def label_function_spatial(sz: torch.Tensor, sigma: torch.Tensor, center: torch.
     return gauss_spatial(sz[0].item(), sigma[0].item(), center[0], end_pad[0].item()).reshape(1, 1, -1, 1) * \
            gauss_spatial(sz[1].item(), sigma[1].item(), center[1], end_pad[1].item()).reshape(1, 1, 1, -1)
 
+def gauss_spatial_batch(sz, sigma, center, end_pad=0):
+    """
+    Works for a batch of centers of shape (batch, 1), returns (batch, sz)
+    To be used only during training.
+    """
+    batch = center.shape[0]
+    k = torch.arange(-(sz-1)/2, (sz+1)/2+end_pad).to(center.device)
+    return torch.exp(-1.0/(2*sigma**2) * (k.unsqueeze(0).expand(batch,-1) - center)**2)
+
+def label_function_spatial_batch(sz: torch.Tensor, sigma: torch.Tensor, center: torch.Tensor, end_pad: torch.Tensor = torch.zeros(2)):
+    """
+    The origin is in the middle of the image. Works for a batch of centers of shape (batch, 2)
+    To be used only during training.
+    """
+    batch = center.shape[0]
+    return gauss_spatial_batch(sz[0].item(), sigma[0].item(), center[:,0:1], end_pad[0].item()).reshape(batch, 1, -1, 1) * \
+           gauss_spatial_batch(sz[1].item(), sigma[1].item(), center[:,1:2], end_pad[1].item()).reshape(batch, 1, 1, -1)
 
 def cubic_spline_fourier(f, a):
     """The continuous Fourier transform of a cubic spline kernel."""

@@ -4,6 +4,7 @@ from torch.nn import functional as F
 from ltr.external.PreciseRoIPooling.pytorch.prroi_pool import PrRoIPool2D
 from ltr.external.PreciseRoIPooling.pytorch.prroi_pool.functional import prroi_pool2d
 import math
+from pytracking import complex, dcf
 
 
 class TeacherSoftLoss(nn.Module):
@@ -54,7 +55,7 @@ class TargetResponseLoss(nn.Module):
         test_feats_t -- dict, test img feature layers of teacher extractor
         target_bb -- Target boxes (x,y,w,h) in image coords in the reference samples. Dims (images, sequences, 4).
         """
-        # TODO: add error checking/handling
+
         num_sequences = target_bb.shape[1]
         target_bb = target_bb[0,...] # batch x 4
         batch_index = torch.arange(target_bb.shape[0], dtype=torch.float32).reshape(-1, 1).to(target_bb.device)
@@ -110,9 +111,6 @@ class TargetResponseLoss(nn.Module):
         
         return loss
 
-
-        
-
 class TSKDLoss(nn.Module):
     """
     Objective for distillation.
@@ -129,13 +127,17 @@ class TSKDLoss(nn.Module):
         self.w_ah = w_ah
         self.w_tr = w_tr
 
-            
-
     def forward(self, iou, features):
-        loss = self.w_ts * self.teacher_soft_loss(iou['iou_student'], iou['iou_teacher'])
-        loss += self.w_ah * self.adaptive_hard_loss(**iou)
-        loss += self.w_tr * self.target_response_loss(**features)
+        loss = 0.
+        if self.w_ts != 0.:
+            loss = self.w_ts * self.teacher_soft_loss(iou['iou_student'], iou['iou_teacher'])
+        if self.w_ah != 0.:
+            loss += self.w_ah * self.adaptive_hard_loss(**iou)
+        if self.w_tr != 0.:
+            loss += self.w_tr * self.target_response_loss(**features)
         return loss
+
+
 class TSsKDLoss(nn.Module):
     """
     Objective for TSsKD distillation.
@@ -149,8 +151,6 @@ class TSsKDLoss(nn.Module):
         self.beta = beta
         self.sigma = sigma
         self.h = h
-
-            
 
     def forward(self, iou_dull, iou_intel, features_dull, features_intel, epoch):
         loss_TS_dull = self.loss_TS(iou_dull, features_dull)
@@ -170,4 +170,144 @@ class TSsKDLoss(nn.Module):
 
         loss = dull + intel
 
+        return loss
+
+
+class FidelityLoss(nn.Module):
+    def __init__(self, reg_loss=nn.MSELoss(), match_layers=None, upsample=None):
+        super().__init__()
+        self.reg_loss = reg_loss
+        self.match_layers = match_layers
+        self.upsample = upsample
+        if match_layers is None:
+            self.match_layers = ['layer3']
+        if upsample is None:
+            self.upsample_filter = torch.empty((256, 32, 1, 1)).cuda()
+            nn.init.xavier_normal_(self.upsample_filter)
+
+    def forward(self, ref_feats_s, test_feats_s, ref_feats_t, test_feats_t, target_bb, **kwargs):
+        """
+        ref_feats_s  -- dict, reference img feature layers of student extractor
+        test_feats_s -- dict, test img feature layers of student extractor
+        ref_feats_t  -- dict, reference img feature layers of teacher extractor
+        test_feats_t -- dict, test img feature layers of teacher extractor
+        """
+
+        num_sequences = target_bb.shape[1]
+        loss = 0.
+        for layer in self.match_layers:
+            # retrieve f_s and f_t
+            ref_feat_t = ref_feats_t[layer].reshape(-1, num_sequences, *ref_feats_t[layer].shape[-3:])[0,...]
+            test_feat_t = test_feats_t[layer] # batch x channel x sz x sz
+
+            ref_feat_s = ref_feats_s[layer].reshape(-1, num_sequences, *ref_feats_s[layer].shape[-3:])[0,...]
+            test_feat_s = test_feats_s[layer] # batch x channel x sz x sz
+
+            # upsample student features
+            ref_feat_s_t = F.conv2d(ref_feat_s, self.upsample_filter)
+            test_feat_s_t = F.conv2d(test_feat_s, self.upsample_filter)
+            
+            # match ref patch feat
+            loss += self.reg_loss(ref_feat_s_t, ref_feat_t)
+
+            # match test patch feat
+            loss += self.reg_loss(test_feat_s_t, test_feat_t)
+        
+        return loss
+
+
+class TrackingLoss(nn.Module):
+    """
+    Tracking loss, introduced in 
+    Wang, N., Zhou, W., Song, Y., Ma, C., & Li, H. (2020). Real-Time Correlation Tracking Via Joint Model Compression and Transfer.
+    https://arxiv.org/abs/1907.09831
+    """
+
+    def __init__(self, reg_loss=nn.MSELoss(), match_layers=None):
+        super().__init__()
+        self.reg_loss = reg_loss
+        self.match_layers = match_layers
+        if match_layers is None:
+            self.match_layers = ['conv1', 'layer1', 'layer2', 'layer3']
+
+    def forward(self, ref_feats_s, test_feats_s, target_bb, test_bb, **kwargs):
+        """
+        ref_feats_s  -- dict, reference img feature layers of student extractor
+        test_feats_s -- dict, test img feature layers of student extractor
+        target_bb -- Target boxes (x,y,w,h) in image coords in the reference samples. Dims (images, sequences, 4).
+        test_bb -- target boxes (x,y,w,h) in test imag. eDims (images, sequences, 4).
+        """
+
+        num_sequences = target_bb.shape[1]
+        target_bb = target_bb[0,...] # batch x 4
+        test_bb = test_bb[0,...] # batch x 4
+
+        # find target centers in original image patch
+        center_ref_orig = target_bb[:,0:2] + 0.5 * target_bb[:,2:4]
+        center_test_orig = test_bb[:,0:2] + 0.5 * test_bb[:,2:4]
+
+        loss = 0.
+        for idx, layer in enumerate(self.match_layers, 1):
+            # calculate scale factor and approx. target patch size, define PrROIPool
+            downsample = (1/2)**idx
+
+            # retrieve feat_s
+            ref_feat = ref_feats_s[layer].reshape(-1, num_sequences, *ref_feats_s[layer].shape[-3:])[0,...]
+            test_feat = test_feats_s[layer] # batch x channel x sz x sz
+
+            # Get ground truth Gaussian label for ref and test patch
+            feat_sz = torch.Tensor([ref_feat.shape[-2], ref_feat.shape[-1]]).to(ref_feat.device) # Tensor([sz, sz])
+            sigma = 0.25 * feat_sz
+            center_ref = center_ref_orig * downsample - 0.5 * feat_sz # origin at center
+            center_test = center_test_orig * downsample - 0.5 * feat_sz # origin at center
+            y = dcf.label_function_spatial_batch(feat_sz, sigma, center_ref) # batch x 1 x sz x sz
+            g = dcf.label_function_spatial_batch(feat_sz, sigma, center_test) # batch x 1 x sz x sz
+
+            # compute DFTs and conjugates
+            y_hat_star = complex.conj(torch.rfft(y, 2)) # batch x 1 x sz x sz/2 x 2
+            ref_feat_hat = torch.rfft(ref_feat, 2) # batch x channel x sz x sz/2 x 2 
+            test_feat_hat = torch.rfft(test_feat, 2) # batch x channel x sz x sz/2 x 2
+
+            # train CF
+            top = complex.mult(y_hat_star, ref_feat_hat) # batch x channel x sz x sz/2 x 2
+            bot = torch.sum(complex.mult(ref_feat_hat, complex.conj(ref_feat_hat)), dim=1, keepdim=True) # batch x 1 x sz x sz/2 x 2
+            w_hat = complex.div(top, bot + 1e-5) # batch x channel x sz x sz/2 x 2
+
+            # compute pred on test feat
+            r = torch.irfft(complex.mult(complex.conj(w_hat), test_feat_hat), 2, signal_sizes=g.shape[-2:]) # batch x channel x sz x sz
+
+            # compute regression loss
+            loss += self.reg_loss(r, g.expand(-1,r.shape[1],-1,-1))
+        
+        return loss
+
+
+class CompressionLoss(nn.Module):
+    """
+    Objective for compression method (adapted for iou net).
+    Returns TeacherSoftLoss + AdaptiveHardLoss + FidelityLoss + TrackingLoss
+    """
+    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=1., w_track=100., w_fd=0.01, threshold_ah=0.005):
+        super().__init__()
+        # subcomponent losses, can turn off adaptive hard by setting threshold to None
+        self.teacher_soft_loss = TeacherSoftLoss(reg_loss)
+        self.adaptive_hard_loss = AdaptiveHardLoss(reg_loss, threshold_ah)
+        self.fidelity_loss = FidelityLoss(reg_loss)
+        self.tracking_loss = TrackingLoss(reg_loss)
+        
+        self.w_ts = w_ts
+        self.w_ah = w_ah
+        self.w_track = w_track
+        self.w_fd = w_fd
+
+    def forward(self, iou, features):
+        loss = 0.
+        if self.w_ts != 0.:
+            loss = self.w_ts * self.teacher_soft_loss(iou['iou_student'], iou['iou_teacher'])
+        if self.w_ah != 0.:
+            loss += self.w_ah * self.adaptive_hard_loss(**iou)
+        if self.w_fd != 0.:
+            loss += self.w_fd * self.fidelity_loss(**features)
+        if self.w_track != 0.:
+            loss += self.w_track * self.tracking_loss(**features)
         return loss
