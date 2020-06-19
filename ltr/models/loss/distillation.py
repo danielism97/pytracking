@@ -55,7 +55,6 @@ class TargetResponseLoss(nn.Module):
         test_feats_t -- dict, test img feature layers of teacher extractor
         target_bb -- Target boxes (x,y,w,h) in image coords in the reference samples. Dims (images, sequences, 4).
         """
-
         num_sequences = target_bb.shape[1]
         target_bb = target_bb[0,...] # batch x 4
         batch_index = torch.arange(target_bb.shape[0], dtype=torch.float32).reshape(-1, 1).to(target_bb.device)
