@@ -108,11 +108,11 @@ class AtomDistillationActor(BaseActor):
                     'target_bb': target_bb}
 
         # Compute loss
-        loss = self.objective(iou, features)
+        loss, iou_loss = self.objective(iou, features)
 
         # Return training stats
         stats = {'Loss/total': loss.item(),
-                 'Loss/iou': loss.item()}
+                 'Loss/iou': iou_loss.item()}
 
         return loss, stats
 
@@ -190,11 +190,11 @@ class AtomCompressionActor(BaseActor):
                     'test_bb': test_bb}
 
         # Compute loss
-        loss = self.objective(iou, features)
+        loss, iou_loss = self.objective(iou, features)
 
         # Return training stats
         stats = {'Loss/total': loss.item(),
-                 'Loss/iou': loss.item()}
+                 'Loss/iou': iou_loss.item()}
 
         return loss, stats
 

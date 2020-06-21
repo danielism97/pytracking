@@ -128,13 +128,16 @@ class TSKDLoss(nn.Module):
 
     def forward(self, iou, features):
         loss = 0.
+        iou_loss = 0.
         if self.w_ts != 0.:
             loss = self.w_ts * self.teacher_soft_loss(iou['iou_student'], iou['iou_teacher'])
+            iou_loss += loss
         if self.w_ah != 0.:
             loss += self.w_ah * self.adaptive_hard_loss(**iou)
+            iou_loss += loss
         if self.w_tr != 0.:
             loss += self.w_tr * self.target_response_loss(**features)
-        return loss
+        return loss, iou_loss
 
 
 class TSsKDLoss(nn.Module):
@@ -301,12 +304,15 @@ class CompressionLoss(nn.Module):
 
     def forward(self, iou, features):
         loss = 0.
+        iou_loss = 0.
         if self.w_ts != 0.:
             loss = self.w_ts * self.teacher_soft_loss(iou['iou_student'], iou['iou_teacher'])
+            iou_loss += loss
         if self.w_ah != 0.:
             loss += self.w_ah * self.adaptive_hard_loss(**iou)
+            iou_loss += loss
         if self.w_fd != 0.:
             loss += self.w_fd * self.fidelity_loss(**features)
         if self.w_track != 0.:
             loss += self.w_track * self.tracking_loss(**features)
-        return loss
+        return loss, iou_loss
