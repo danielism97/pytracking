@@ -73,8 +73,8 @@ def label_function_spatial_batch(sz: torch.Tensor, sigma: torch.Tensor, center: 
     To be used only during training.
     """
     batch = center.shape[0]
-    return gauss_spatial_batch(sz[0].item(), sigma[0].item(), center[:,0:1], end_pad[0].item()).reshape(batch, 1, -1, 1) * \
-           gauss_spatial_batch(sz[1].item(), sigma[1].item(), center[:,1:2], end_pad[1].item()).reshape(batch, 1, 1, -1)
+    return gauss_spatial_batch(sz[1].item(), sigma[1].item(), center[:,1:2], end_pad[1].item()).reshape(batch, 1, -1, 1) * \
+           gauss_spatial_batch(sz[0].item(), sigma[0].item(), center[:,0:1], end_pad[0].item()).reshape(batch, 1, 1, -1)
 
 def cubic_spline_fourier(f, a):
     """The continuous Fourier transform of a cubic spline kernel."""
