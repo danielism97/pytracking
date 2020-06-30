@@ -82,7 +82,7 @@ def run(settings):
 
     # Load teacher network
     teacher_net = atom_models.atom_resnet18(backbone_pretrained=True)
-    teacher_path = '/content/pytracking/pytracking/networks/atom_default.pth'
+    teacher_path = 'pytracking/networks/atom_default.pth'
     teacher_net = loading.load_weights(teacher_net, teacher_path, strict=True)
     print('*******************Teacher net loaded successfully*******************')
     
@@ -100,4 +100,4 @@ def run(settings):
     trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
     # Run training (set fail_safe=False if you are debugging)
-    trainer.train(50, load_latest=True, fail_safe=True)
+    trainer.train(50, load_latest=False, fail_safe=False)
