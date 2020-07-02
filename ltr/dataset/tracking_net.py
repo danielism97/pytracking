@@ -123,7 +123,7 @@ class TrackingNet(BaseVideoDataset):
 
     def _get_class(self, seq_id):
         seq_name = self.sequence_list[seq_id][1]
-        return self.seq_to_class_map[seq_name]
+        return self.seq_to_class_map.get(seq_name[1], 'Unknown')
 
     def get_class_name(self, seq_id):
         obj_class = self._get_class(seq_id)
