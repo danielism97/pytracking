@@ -40,10 +40,11 @@ class TargetResponseLoss(nn.Module):
     """
     Loss to match extracted features, weighted by target location.
     """
-    def __init__(self, reg_loss=nn.MSELoss(), match_layers=None):
+    def __init__(self, reg_loss=nn.MSELoss(), match_layers=None, use_w=True):
         super().__init__()
         self.reg_loss = reg_loss
         self.match_layers = match_layers
+        self.use_w = use_w
         if match_layers is None:
             self.match_layers = ['conv1', 'layer1', 'layer2', 'layer3']
 
@@ -82,22 +83,27 @@ class TargetResponseLoss(nn.Module):
             target_patch_t = prroi_pool2d(ref_feat_t, roi, patch_sz, patch_sz, downsample) # batch x channel x patch_sz x patch_sz 
             target_patch_s = prroi_pool2d(ref_feat_s, roi, patch_sz, patch_sz, downsample) # batch x channel x patch_sz x patch_sz 
 
-            # cross-correlate target patch with test img feat to get weight map
-            p = int((patch_sz - 1) / 2)
+            if self.use_w:
+                # cross-correlate target patch with test img feat to get weight map
+                p = int((patch_sz - 1) / 2)
 
-            batch, cin_t, H, W = test_feat_t.shape
-            weight_t = F.conv2d(test_feat_t.view(1, batch*cin_t, H, W), target_patch_t, padding=p, groups=batch)
-            weight_t = weight_t.permute([1,0,2,3]) # batch x 1 x sz x sz
-            weight_t = weight_t / torch.sum(weight_t)
+                batch, cin_t, H, W = test_feat_t.shape
+                weight_t = F.conv2d(test_feat_t.view(1, batch*cin_t, H, W), target_patch_t, padding=p, groups=batch)
+                weight_t = weight_t.permute([1,0,2,3]) # batch x 1 x sz x sz
+                weight_t = weight_t / torch.sum(weight_t)
 
-            batch, cin_s, H, W = test_feat_s.shape
-            weight_s = F.conv2d(test_feat_s.view(1, batch*cin_s, H, W), target_patch_s, padding=p, groups=batch)
-            weight_s = weight_s.permute([1,0,2,3]) # batch x 1 x sz x sz
-            weight_s = weight_s / torch.sum(weight_s)
+                batch, cin_s, H, W = test_feat_s.shape
+                weight_s = F.conv2d(test_feat_s.view(1, batch*cin_s, H, W), target_patch_s, padding=p, groups=batch)
+                weight_s = weight_s.permute([1,0,2,3]) # batch x 1 x sz x sz
+                weight_s = weight_s / torch.sum(weight_s)
 
-            # mult weight map with test img feat and stack layers
-            test_Q_t = torch.sum(torch.abs(test_feat_t * weight_t), dim=1) # batch x sz x sz
-            test_Q_s = torch.sum(torch.abs(test_feat_s * weight_s), dim=1) # batch x sz x sz
+                # mult weight map with test img feat and stack layers
+                test_Q_t = torch.sum(torch.abs(test_feat_t * weight_t), dim=1) # batch x sz x sz
+                test_Q_s = torch.sum(torch.abs(test_feat_s * weight_s), dim=1) # batch x sz x sz
+            
+            else:
+                test_Q_t = torch.sum(torch.abs(test_feat_t), dim=1) # batch x sz x sz
+                test_Q_s = torch.sum(torch.abs(test_feat_s), dim=1) # batch x sz x sz
 
             target_Q_t = torch.sum(torch.abs(target_patch_t), dim=1) # batch x patch_sz x patch_sz
             target_Q_s = torch.sum(torch.abs(target_patch_s), dim=1) # batch x patch_sz x patch_sz
@@ -115,12 +121,12 @@ class TSKDLoss(nn.Module):
     Objective for distillation.
     Returns TeacherSoftLoss + AdaptiveHardLoss + TargetResponseLoss
     """
-    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_tr=100., threshold_ah=0.005):
+    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_tr=100., threshold_ah=0.005, use_w=True):
         super().__init__()
         # subcomponent losses, can turn off adaptive hard by setting threshold to None
         self.teacher_soft_loss = TeacherSoftLoss(reg_loss)
         self.adaptive_hard_loss = AdaptiveHardLoss(reg_loss, threshold_ah)
-        self.target_response_loss = TargetResponseLoss(reg_loss)
+        self.target_response_loss = TargetResponseLoss(reg_loss, use_w=use_w)
         
         self.w_ts = w_ts
         self.w_ah = w_ah
