@@ -187,7 +187,7 @@ class AtomIoUNet(nn.Module):
 
         return c3_t, c4_t
 
-class AtomSmallIoUNet(AtomIoUNet):
+class AtomMediumIoUNet(AtomIoUNet):
     """Network module for IoU prediction. Refer to the ATOM paper for an illustration of the architecture.
     It uses two backbone feature layers as input.
     args:
@@ -261,6 +261,83 @@ class AtomSmallIoUNet(AtomIoUNet):
                 # m.weight.data.fill_(1)
                 m.weight.data.uniform_()
                 m.bias.data.zero_()
+
+
+class AtomSmallIoUNet(AtomIoUNet):
+    """Network module for IoU prediction. Refer to the ATOM paper for an illustration of the architecture.
+    It uses two backbone feature layers as input.
+    args:
+        input_dim:  Feature dimensionality of the two input backbone layers.
+        pred_input_dim:  Dimensionality input the the prediction network.
+        pred_inter_dim:  Intermediate dimensionality in the prediction network."""
+
+    def __init__(self, input_dim=(32,64), pred_input_dim=(64,64), pred_inter_dim=(64,64), cpu=False):
+        super().__init__(input_dim, pred_input_dim, pred_inter_dim)
+        # _r for reference, _t for test
+        # in: 36x36x16  out: 36x36x16
+        self.conv3_1r = conv(input_dim[0], 32, kernel_size=3, stride=1)
+        # in: 36x36x16  out: 36x36x32
+        self.conv3_1t = conv(input_dim[0], 64, kernel_size=3, stride=1)
+
+        # in: 36x36x32  out: 36x36x32
+        self.conv3_2t = conv(64, pred_input_dim[0], kernel_size=3, stride=1)
+
+        if cpu:
+            self.prroi_pool3r = RoIPool((3, 3), 1/8)
+            self.prroi_pool3t = RoIPool((5, 5), 1/8)
+        else:
+            # in: 36x36x16  out:3x3x16
+            self.prroi_pool3r = PrRoIPool2D(3, 3, 1/8)
+            # in: 36x36x32  out:5x5x32
+            self.prroi_pool3t = PrRoIPool2D(5, 5, 1/8)
+
+        # in: 3x3x16  out:1x1x32
+        self.fc3_1r = conv(32, 64, kernel_size=3, stride=1, padding=0)
+
+        # in: 18x18x32  out: 18x18x32
+        self.conv4_1r = conv(input_dim[1], 64, kernel_size=3, stride=1)
+        # in: 18x18x32  out: 18x18x32
+        self.conv4_1t = conv(input_dim[1], 64, kernel_size=3, stride=1)
+
+        # in: 18x18x32  out: 18x18x32
+        self.conv4_2t = conv(64, pred_input_dim[1], kernel_size=3, stride=1)
+
+        if cpu:
+            self.prroi_pool4r = RoIPool((1, 1), 1/16)
+            self.prroi_pool4t = RoIPool((3, 3), 1 / 16)
+        else:
+            # in: 18x18x32  out:1x1x32
+            self.prroi_pool4r = PrRoIPool2D(1, 1, 1/16)
+            # in: 18x18x32  out: 3x3x32
+            self.prroi_pool4t = PrRoIPool2D(3, 3, 1 / 16)
+
+        # in: 1x1x64  out: 1x1x32
+        self.fc34_3r = conv(64 + 64, pred_input_dim[0], kernel_size=1, stride=1, padding=0)
+        # in: 1x1x64  out: 1x1x32
+        self.fc34_4r = conv(64 + 64, pred_input_dim[1], kernel_size=1, stride=1, padding=0)
+
+        # in: 5x5x32  out: 1x1x32
+        self.fc3_rt = LinearBlock(pred_input_dim[0], pred_inter_dim[0], 5)
+        # in: 3x3x32  out: 1x1x32
+        self.fc4_rt = LinearBlock(pred_input_dim[1], pred_inter_dim[1], 3)
+
+        # in: 1x1x64  out: 1x1x1
+        self.iou_predictor = nn.Linear(pred_inter_dim[0]+pred_inter_dim[1], 1, bias=True)
+
+        # Init weights
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight.data, mode='fan_in')
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            elif isinstance(m, nn.BatchNorm2d):
+                # In earlier versions batch norm parameters was initialized with default initialization,
+                # which changed in pytorch 1.2. In 1.1 and earlier the weight was set to U(0,1).
+                # So we use the same initialization here.
+                # m.weight.data.fill_(1)
+                m.weight.data.uniform_()
+                m.bias.data.zero_()
+
 
 class AtomTinyIoUNet(AtomIoUNet):
     """Network module for IoU prediction. Refer to the ATOM paper for an illustration of the architecture.

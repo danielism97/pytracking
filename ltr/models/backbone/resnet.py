@@ -273,7 +273,7 @@ def resnet50(output_layers=None, pretrained=False, **kwargs):
         model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
     return model
 
-def resnet18small(output_layers=None, pretrained=False, inplanes=32, **kwargs):
+def resnet18small(output_layers=None, pretrained=False, inplanes=16, **kwargs):
     """Constructs a ResNet-18-small model.
     """
 

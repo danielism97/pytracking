@@ -42,7 +42,7 @@ def parameters():
 
     # Online model parameters
     deep_params.kernel_size = (4,4)     # Kernel size of filter
-    deep_params.compressed_dim = 64     # Dimension output of projection matrix
+    deep_params.compressed_dim = 32     # Dimension output of projection matrix
     deep_params.filter_reg = 1e-1       # Filter regularization factor
     deep_params.projection_reg = 1e-4   # Projection regularization factor
 
@@ -86,20 +86,19 @@ def parameters():
 
     # IoUNet parameters
     params.use_iou_net = True               # Use IoU net or not
-    params.box_refinement_space = 'relative'
     params.iounet_augmentation = False      # Use the augmented samples to compute the modulation vector
     params.iounet_k = 3                     # Top-k average to estimate final box
     params.num_init_random_boxes = 9        # Num extra random boxes in addition to the classifier prediction
     params.box_jitter_pos = 0.1             # How much to jitter the translation for random boxes
     params.box_jitter_sz = 0.5              # How much to jitter the scale for random boxes
     params.maximal_aspect_ratio = 6         # Limit on the aspect ratio
-    params.box_refinement_iter = 10          # Number of iterations for refining the boxes
-    params.box_refinement_step_length = (1e-2, 5e-2) # 1   # Gradient step length in the bounding box refinement 5e-3 2e-2
+    params.box_refinement_iter = 5          # Number of iterations for refining the boxes
+    params.box_refinement_step_length = 1   # Gradient step length in the bounding box refinement
     params.box_refinement_step_decay = 1    # Multiplicative step length decay (1 means no decay)
 
     # Setup the feature extractor (which includes the IoUNet)
     deep_fparams = FeatureParams(feature_params=[deep_params])
-    deep_feat = deep.ATOMResNet18(net_path='atom_gmm_sampl', output_layers=['layer3'], fparams=deep_fparams, normalize_power=2)
+    deep_feat = deep.ATOMResNet18Small(net_path='small.pth.tar', output_layers=['layer3'], fparams=deep_fparams, normalize_power=2)
     params.features = MultiResolutionExtractor([deep_feat])
 
     return params
