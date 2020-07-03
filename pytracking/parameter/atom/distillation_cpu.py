@@ -42,7 +42,7 @@ def parameters():
 
     # Online model parameters
     deep_params.kernel_size = (4,4)     # Kernel size of filter
-    deep_params.compressed_dim = 64     # Dimension output of projection matrix
+    deep_params.compressed_dim = 32     # Dimension output of projection matrix
     deep_params.filter_reg = 1e-1       # Filter regularization factor
     deep_params.projection_reg = 1e-4   # Projection regularization factor
 
