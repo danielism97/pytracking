@@ -182,15 +182,17 @@ class TSsKDLoss(nn.Module):
 
 
 class FidelityLoss(nn.Module):
-    def __init__(self, reg_loss=nn.MSELoss(), match_layers=None, upsample=None):
+    def __init__(self, reg_loss=nn.MSELoss(), match_layers=None, upsample=False):
         super().__init__()
         self.reg_loss = reg_loss
         self.match_layers = match_layers
         self.upsample = upsample
         if match_layers is None:
-            self.match_layers = ['layer3']
-        if upsample is None:
-            self.upsample_filter = torch.empty((256, 32, 1, 1)).cuda()
+            self.match_layers = ['layer2', 'layer3']
+
+        # TODO: fix the second dim for compression loss
+        self.upsample_filter = torch.empty((256, 32, 1, 1)).cuda()
+        if upsample:
             nn.init.xavier_normal_(self.upsample_filter)
 
     def forward(self, ref_feats_s, test_feats_s, ref_feats_t, test_feats_t, target_bb, **kwargs):
@@ -211,15 +213,27 @@ class FidelityLoss(nn.Module):
             ref_feat_s = ref_feats_s[layer].reshape(-1, num_sequences, *ref_feats_s[layer].shape[-3:])[0,...]
             test_feat_s = test_feats_s[layer] # batch x channel x sz x sz
 
-            # upsample student features
-            ref_feat_s_t = F.conv2d(ref_feat_s, self.upsample_filter)
-            test_feat_s_t = F.conv2d(test_feat_s, self.upsample_filter)
-            
-            # match ref patch feat
-            loss += self.reg_loss(ref_feat_s_t, ref_feat_t)
+            if self.upsample:
+                # upsample student features
+                ref_feat_s_t = F.conv2d(ref_feat_s, self.upsample_filter)
+                test_feat_s_t = F.conv2d(test_feat_s, self.upsample_filter)
 
-            # match test patch feat
-            loss += self.reg_loss(test_feat_s_t, test_feat_t)
+                # match ref patch feat
+                loss += self.reg_loss(ref_feat_s_t, ref_feat_t)
+                # match test patch feat
+                loss += self.reg_loss(test_feat_s_t, test_feat_t)
+            
+            else:
+                test_Q_t = torch.sum(torch.abs(test_feat_t), dim=1) # batch x sz x sz
+                test_Q_s = torch.sum(torch.abs(test_feat_s), dim=1) # batch x sz x sz
+
+                ref_Q_t = torch.sum(torch.abs(ref_feat_t), dim=1) # batch x sz x sz
+                ref_Q_s = torch.sum(torch.abs(ref_feat_s), dim=1) # batch x sz x sz
+
+                # match target patch feat
+                loss += self.reg_loss(ref_Q_s, ref_Q_t)
+                # match test img feat
+                loss += self.reg_loss(test_Q_s, test_Q_t)
         
         return loss
 
@@ -300,7 +314,7 @@ class CompressionLoss(nn.Module):
         # subcomponent losses, can turn off adaptive hard by setting threshold to None
         self.teacher_soft_loss = TeacherSoftLoss(reg_loss)
         self.adaptive_hard_loss = AdaptiveHardLoss(reg_loss, threshold_ah)
-        self.fidelity_loss = FidelityLoss(reg_loss)
+        self.fidelity_loss = FidelityLoss(reg_loss, upsample=True)
         self.tracking_loss = TrackingLoss(reg_loss)
         
         self.w_ts = w_ts
@@ -321,4 +335,102 @@ class CompressionLoss(nn.Module):
             loss += self.w_fd * self.fidelity_loss(**features)
         if self.w_track != 0.:
             loss += self.w_track * self.tracking_loss(**features)
+        return loss, iou_loss
+
+
+class CFLoss(nn.Modules):
+    """
+    Loss to match target * search with GT Gaussian map.
+    """
+    def __init__(self, reg_loss=nn.MSELoss(), match_layers=None):
+        super().__init__()
+        self.reg_loss = reg_loss
+        self.match_layers = match_layers
+        if match_layers is None:
+            self.match_layers = ['layer1', 'layer2', 'layer3']
+
+    def forward(self, ref_feats_s, test_feats_s, target_bb, test_bb, **kwargs):
+        """
+        ref_feats_s  -- dict, reference img feature layers of student extractor
+        test_feats_s -- dict, test img feature layers of student extractor
+        ref_feats_t  -- dict, reference img feature layers of teacher extractor
+        test_feats_t -- dict, test img feature layers of teacher extractor
+        target_bb -- Target boxes (x,y,w,h) in image coords in the reference samples. Dims (images, sequences, 4).
+        """
+        num_sequences = target_bb.shape[1]
+        target_bb = target_bb[0,...] # batch x 4
+        batch_index = torch.arange(target_bb.shape[0], dtype=torch.float32).reshape(-1, 1).to(target_bb.device)
+        target_bb = target_bb.clone()
+        target_bb[:, 2:4] = target_bb[:, 0:2] + target_bb[:, 2:4]
+        roi = torch.cat((batch_index, target_bb), dim=1)
+
+        # find target centers in original image patch
+        test_bb = test_bb[0,...] # batch x 4
+        center_test_orig = test_bb[:,0:2] + 0.5 * test_bb[:,2:4]
+
+        loss = 0.
+        for idx, layer in enumerate(self.match_layers, 1):
+            # calculate scale factor and approx. target patch size, define PrROIPool
+            downsample = (1/2)**idx
+            patch_sz = math.ceil(58 * downsample)
+            patch_sz = patch_sz + 1 if (patch_sz % 2) == 0 else patch_sz
+
+            # prroi = PrRoIPool2D(patch_sz, patch_sz, downsample)
+
+            # retrieve f_s
+            ref_feat = ref_feats_s[layer].reshape(-1, num_sequences, *ref_feats_s[layer].shape[-3:])[0,...]
+            test_feat = test_feats_s[layer] # batch x channel x sz x sz
+
+            # get target patch from ref img feat by PrROI pooling
+            target_patch = prroi_pool2d(ref_feat, roi, patch_sz, patch_sz, downsample) # batch x channel x patch_sz x patch_sz 
+
+            # cross-correlate target patch with test img feat to get weight map
+            p = int((patch_sz - 1) / 2)
+
+            batch, cin_s, H, W = test_feat.shape
+            weight = F.conv2d(test_feat.view(1, batch*cin_s, H, W), target_patch, padding=p, groups=batch)
+            weight = weight.permute([1,0,2,3]) # batch x 1 x sz x sz
+
+            # find GT label
+            feat_sz = torch.Tensor([ref_feat.shape[-2], ref_feat.shape[-1]]).to(ref_feat.device) # Tensor([sz, sz])
+            sigma = 0.25 * feat_sz
+            center_test = center_test_orig * downsample - 0.5 * feat_sz # origin at center
+            g = dcf.label_function_spatial_batch(feat_sz, sigma, center_test) # batch x 1 x sz x sz
+
+            # match target patch feat
+            loss += self.reg_loss(weight, g)
+        
+        return loss
+
+class CFKDLoss(nn.Modules):
+    """
+    Objective for proposed compression method (adapted for iou net).
+    Returns TeacherSoftLoss + AdaptiveHardLoss + FidelityLoss + CFLoss
+    """
+    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_cf=100., w_fd=0.01, threshold_ah=0.005):
+        super().__init__()
+        # subcomponent losses, can turn off adaptive hard by setting threshold to None
+        self.teacher_soft_loss = TeacherSoftLoss(reg_loss)
+        self.adaptive_hard_loss = AdaptiveHardLoss(reg_loss, threshold_ah)
+        self.fidelity_loss = FidelityLoss(reg_loss, upsample=False)
+        self.cf_loss = CFLoss(reg_loss)
+        
+        self.w_ts = w_ts
+        self.w_ah = w_ah
+        self.w_cf = w_cf
+        self.w_fd = w_fd
+
+    def forward(self, iou, features):
+        loss = 0.
+        iou_loss = 0.
+        if self.w_ts != 0.:
+            loss = self.w_ts * self.teacher_soft_loss(iou['iou_student'], iou['iou_teacher'])
+            iou_loss += loss
+        if self.w_ah != 0.:
+            loss += self.w_ah * self.adaptive_hard_loss(**iou)
+            iou_loss += loss
+        if self.w_fd != 0.:
+            loss += self.w_fd * self.fidelity_loss(**features)
+        if self.w_track != 0.:
+            loss += self.w_cf * self.cf_loss(**features)
         return loss, iou_loss
