@@ -1,1 +1,1 @@
-from .atom_iou_net import AtomIoUNet, AtomSmallIoUNet, AtomTinyIoUNet
+from .atom_iou_net import AtomIoUNet, AtomMediumIoUNet, AtomSmallIoUNet, AtomTinyIoUNet

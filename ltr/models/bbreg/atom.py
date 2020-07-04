@@ -105,13 +105,13 @@ def atom_resnet50(iou_input_dim=(256,256), iou_inter_dim=(256,256), backbone_pre
 @model_constructor
 def atom_resnet18medium(iou_input_dim=(128,128), iou_inter_dim=(128,128), backbone_pretrained=False, cpu=False):
     # backbone
-    backbone_net = backbones.resnet18small(pretrained=backbone_pretrained, inplanes=32)
+    backbone_net = backbones.resnet18medium(pretrained=backbone_pretrained, inplanes=32)
 
     # Bounding box regressor
-    iou_predictor = bbmodels.AtomSmallIoUNet(input_dim=(64,128), 
-                                             pred_input_dim=iou_input_dim, 
-                                             pred_inter_dim=iou_inter_dim,
-                                             cpu=cpu)
+    iou_predictor = bbmodels.AtomMediumIoUNet(input_dim=(64,128), 
+                                              pred_input_dim=iou_input_dim, 
+                                              pred_inter_dim=iou_inter_dim,
+                                              cpu=cpu)
 
     extractor_grad = False if cpu else True
 
