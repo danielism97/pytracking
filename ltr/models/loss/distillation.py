@@ -338,7 +338,7 @@ class CompressionLoss(nn.Module):
         return loss, iou_loss
 
 
-class CFLoss(nn.Modules):
+class CFLoss(nn.Module):
     """
     Loss to match target * search with GT Gaussian map.
     """
@@ -402,7 +402,7 @@ class CFLoss(nn.Modules):
         
         return loss
 
-class CFKDLoss(nn.Modules):
+class CFKDLoss(nn.Module):
     """
     Objective for proposed compression method (adapted for iou net).
     Returns TeacherSoftLoss + AdaptiveHardLoss + FidelityLoss + CFLoss
