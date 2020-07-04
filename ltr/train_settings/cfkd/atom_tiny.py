@@ -89,7 +89,7 @@ def run(settings):
     # Create student network and actor
     student_net = atom_models.atom_resnet18tiny(backbone_pretrained=False)
     objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), threshold_ah=0.005)
-    actor = actors.AtomDistillationActor(student_net, teacher_net, objective)
+    actor = actors.AtomCompressionActor(student_net, teacher_net, objective)
 
     # Optimizer
     optimizer = optim.Adam([{'params': actor.student_net.feature_extractor.parameters()},
