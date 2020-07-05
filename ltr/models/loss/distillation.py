@@ -407,7 +407,7 @@ class CFKDLoss(nn.Module):
     Objective for proposed compression method (adapted for iou net).
     Returns TeacherSoftLoss + AdaptiveHardLoss + FidelityLoss + CFLoss
     """
-    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_cf=100., w_fd=0.01, threshold_ah=0.005):
+    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_cf=1., w_fd=0.01, threshold_ah=0.005):
         super().__init__()
         # subcomponent losses, can turn off adaptive hard by setting threshold to None
         self.teacher_soft_loss = TeacherSoftLoss(reg_loss)
