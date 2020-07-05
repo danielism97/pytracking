@@ -46,7 +46,7 @@ class TargetResponseLoss(nn.Module):
         self.match_layers = match_layers
         self.use_w = use_w
         if match_layers is None:
-            self.match_layers = ['conv1', 'layer1', 'layer2', 'layer3']
+            self.match_layers = ['layer2', 'layer3']
 
     def forward(self, ref_feats_s, test_feats_s, ref_feats_t, test_feats_t, target_bb):
         """
@@ -90,12 +90,12 @@ class TargetResponseLoss(nn.Module):
                 batch, cin_t, H, W = test_feat_t.shape
                 weight_t = F.conv2d(test_feat_t.view(1, batch*cin_t, H, W), target_patch_t, padding=p, groups=batch)
                 weight_t = weight_t.permute([1,0,2,3]) # batch x 1 x sz x sz
-                weight_t = weight_t / torch.sum(weight_t)
+                # weight_t = weight_t / torch.sum(weight_t)
 
                 batch, cin_s, H, W = test_feat_s.shape
                 weight_s = F.conv2d(test_feat_s.view(1, batch*cin_s, H, W), target_patch_s, padding=p, groups=batch)
                 weight_s = weight_s.permute([1,0,2,3]) # batch x 1 x sz x sz
-                weight_s = weight_s / torch.sum(weight_s)
+                # weight_s = weight_s / torch.sum(weight_s)
 
                 # mult weight map with test img feat and stack layers
                 test_Q_t = torch.sum(torch.abs(test_feat_t * weight_t), dim=1) # batch x sz x sz
