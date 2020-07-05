@@ -106,7 +106,7 @@ def run(settings):
     trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
     # Run training (set fail_safe=False if you are debugging)
-    trainer.train(15, load_latest=False, fail_safe=True)
+    trainer.train(30, load_latest=False, fail_safe=True)
 
     #########################################################
     ### Distil regressor next, turn off grad for backbone ###
@@ -125,4 +125,4 @@ def run(settings):
     trainer.lr_scheduler = optim.lr_scheduler.StepLR(trainer.optimizer, step_size=15, gamma=0.2)
 
     # Run training (set fail_safe=False if you are debugging)
-    trainer.train(65, load_latest=False, fail_safe=True)
+    trainer.train(80, load_latest=False, fail_safe=True)
