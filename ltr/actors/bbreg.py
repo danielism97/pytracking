@@ -111,8 +111,10 @@ class AtomDistillationActor(BaseActor):
         loss, iou_loss = self.objective(iou, features)
 
         # Return training stats
+        if not isinstance(iou_loss, float):
+            iou_loss = iou_loss.item()
         stats = {'Loss/total': loss.item(),
-                 'Loss/iou': iou_loss.item()}
+                 'Loss/iou': iou_loss}
 
         return loss, stats
 
@@ -193,8 +195,10 @@ class AtomCompressionActor(BaseActor):
         loss, iou_loss = self.objective(iou, features)
 
         # Return training stats
+        if not isinstance(iou_loss, float):
+            iou_loss = iou_loss.item()
         stats = {'Loss/total': loss.item(),
-                 'Loss/iou': iou_loss.item()}
+                 'Loss/iou': iou_loss}
 
         return loss, stats
 
