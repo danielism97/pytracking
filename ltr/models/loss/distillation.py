@@ -431,6 +431,6 @@ class CFKDLoss(nn.Module):
             iou_loss += loss
         if self.w_fd != 0.:
             loss += self.w_fd * self.fidelity_loss(**features)
-        if self.w_track != 0.:
+        if self.w_cf != 0.:
             loss += self.w_cf * self.cf_loss(**features)
         return loss, iou_loss
