@@ -326,11 +326,11 @@ class CompressionLoss(nn.Module):
         loss = 0.
         iou_loss = 0.
         if self.w_ts != 0.:
-            loss = self.w_ts * self.teacher_soft_loss(iou['iou_student'], iou['iou_teacher'])
-            iou_loss += loss
+            loss += self.w_ts * self.teacher_soft_loss(iou['iou_student'], iou['iou_teacher'])
+            iou_loss = loss
         if self.w_ah != 0.:
             loss += self.w_ah * self.adaptive_hard_loss(**iou)
-            iou_loss += loss
+            iou_loss = loss
         if self.w_fd != 0.:
             loss += self.w_fd * self.fidelity_loss(**features)
         if self.w_track != 0.:
