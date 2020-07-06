@@ -93,7 +93,7 @@ def run(settings):
 
     # Optimizer
     optimizer = optim.Adam([{'params': actor.student_net.feature_extractor.parameters()},
-                            {'params': actor.student_net.bb_regressor.parameters()}], lr=1e-3)
+                            {'params': actor.student_net.bb_regressor.parameters()}], lr=1e-2)
     lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.1)
 
     # Create trainer

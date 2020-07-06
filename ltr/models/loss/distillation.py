@@ -90,12 +90,12 @@ class TargetResponseLoss(nn.Module):
                 batch, cin_t, H, W = test_feat_t.shape
                 weight_t = F.conv2d(test_feat_t.view(1, batch*cin_t, H, W), target_patch_t, padding=p, groups=batch)
                 weight_t = weight_t.permute([1,0,2,3]) # batch x 1 x sz x sz
-                # weight_t = weight_t / torch.sum(weight_t)
+                # weight_t = weight_t / torch.max(weight_t)
 
                 batch, cin_s, H, W = test_feat_s.shape
                 weight_s = F.conv2d(test_feat_s.view(1, batch*cin_s, H, W), target_patch_s, padding=p, groups=batch)
                 weight_s = weight_s.permute([1,0,2,3]) # batch x 1 x sz x sz
-                # weight_s = weight_s / torch.sum(weight_s)
+                # weight_s = weight_s / torch.max(weight_s)
 
                 # mult weight map with test img feat and stack layers
                 test_Q_t = torch.sum(torch.abs(test_feat_t * weight_t), dim=1) # batch x sz x sz
@@ -394,10 +394,11 @@ class CFLoss(nn.Module):
             batch, cin_s, H, W = test_feat.shape
             weight = F.conv2d(test_feat.view(1, batch*cin_s, H, W), target_patch, padding=p, groups=batch)
             weight = weight.permute([1,0,2,3]) # batch x 1 x sz x sz
+            weight = weight / torch.max(weight)
 
             # find GT label
             feat_sz = torch.Tensor([ref_feat.shape[-2], ref_feat.shape[-1]]).to(ref_feat.device) # Tensor([sz, sz])
-            sigma = 0.25 * feat_sz
+            sigma = 0.15 * feat_sz
             center_test = center_test_orig * downsample - 0.5 * feat_sz # origin at center
             g = dcf.label_function_spatial_batch(feat_sz, sigma, center_test) # batch x 1 x sz x sz
 
@@ -411,7 +412,7 @@ class CFKDLoss(nn.Module):
     Objective for proposed compression method (adapted for iou net).
     Returns TeacherSoftLoss + AdaptiveHardLoss + FidelityLoss + CFLoss
     """
-    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_cf=1., w_fd=0.01, threshold_ah=0.005):
+    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_cf=1., w_fd=1., threshold_ah=0.005):
         super().__init__()
         # subcomponent losses, can turn off adaptive hard by setting threshold to None
         self.teacher_soft_loss = TeacherSoftLoss(reg_loss)
