@@ -46,9 +46,9 @@ class TargetResponseLoss(nn.Module):
         self.match_layers = match_layers
         self.use_w = use_w
         if match_layers is None:
-            self.match_layers = ['layer2', 'layer3']
+            self.match_layers = ['layer1', 'layer2', 'layer3']
 
-    def forward(self, ref_feats_s, test_feats_s, ref_feats_t, test_feats_t, target_bb):
+    def forward(self, ref_feats_s, test_feats_s, ref_feats_t, test_feats_t, target_bb, test_bb=None):
         """
         ref_feats_s  -- dict, reference img feature layers of student extractor
         test_feats_s -- dict, test img feature layers of student extractor
@@ -62,6 +62,12 @@ class TargetResponseLoss(nn.Module):
         target_bb = target_bb.clone()
         target_bb[:, 2:4] = target_bb[:, 0:2] + target_bb[:, 2:4]
         roi = torch.cat((batch_index, target_bb), dim=1)
+
+        # find target centers in original image patch
+        center_test_orig = None
+        if test_bb is not None:
+            test_bb = test_bb[0,...] # batch x 4
+            center_test_orig = test_bb[:,0:2] + 0.5 * test_bb[:,2:4]
 
         loss = 0.
         for idx, layer in enumerate(self.match_layers, 1):
@@ -102,8 +108,15 @@ class TargetResponseLoss(nn.Module):
                 test_Q_s = torch.sum(torch.abs(test_feat_s * weight_s), dim=1) # batch x sz x sz
             
             else:
-                test_Q_t = torch.sum(torch.abs(test_feat_t), dim=1) # batch x sz x sz
-                test_Q_s = torch.sum(torch.abs(test_feat_s), dim=1) # batch x sz x sz
+                 # Get ground truth Gaussian label for ref and test patch
+                feat_sz = torch.Tensor([ref_feat_s.shape[-2], ref_feat_s.shape[-1]]).to(ref_feat_s.device) # Tensor([sz, sz])
+                sigma = 0.25 * feat_sz
+                center_test = center_test_orig * downsample - 0.5 * feat_sz # origin at center
+                g = dcf.label_function_spatial_batch(feat_sz, sigma, center_test) # batch x 1 x sz x sz
+                g = g / torch.sum(g)
+
+                test_Q_t = torch.sum(torch.abs(test_feat_t * g), dim=1) # batch x sz x sz
+                test_Q_s = torch.sum(torch.abs(test_feat_s * g), dim=1) # batch x sz x sz
 
             target_Q_t = torch.sum(torch.abs(target_patch_t), dim=1) # batch x patch_sz x patch_sz
             target_Q_s = torch.sum(torch.abs(target_patch_s), dim=1) # batch x patch_sz x patch_sz
