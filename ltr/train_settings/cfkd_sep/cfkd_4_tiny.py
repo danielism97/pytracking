@@ -89,40 +89,53 @@ def run(settings):
     # Create student network and actor
     student_net = atom_models.atom_resnet18tiny(backbone_pretrained=False)
 
-    ##########################################################
-    ### Distil backbone first, turn off grad for regressor ###
-    ##########################################################
-    for p in student_net.bb_regressor.parameters():
-        p.requires_grad_(False)
+    # ##########################################################
+    # ### Distil backbone first, turn off grad for regressor ###
+    # ##########################################################
+    # for p in student_net.bb_regressor.parameters():
+    #     p.requires_grad_(False)
     
-    objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_ts=0., w_ah=0., w_cf=1., w_fd=1.)
-    actor = actors.AtomCompressionActor(student_net, teacher_net, objective)
+    # objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_ts=0., w_ah=0., w_cf=1., w_fd=1.)
+    # actor = actors.AtomCompressionActor(student_net, teacher_net, objective)
 
-    # Optimizer
-    optimizer = optim.Adam(actor.student_net.feature_extractor.parameters(), lr=1e-2)
-    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.1)
+    # # Optimizer
+    # optimizer = optim.Adam(actor.student_net.feature_extractor.parameters(), lr=1e-2)
+    # lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.1)
 
-    # Create trainer
-    trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
+    # # Create trainer
+    # trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
-    # Run training (set fail_safe=False if you are debugging)
-    trainer.train(30, load_latest=False, fail_safe=True)
+    # # Run training (set fail_safe=False if you are debugging)
+    # trainer.train(30, load_latest=False, fail_safe=True)
 
     #########################################################
     ### Distil regressor next, turn off grad for backbone ###
     #########################################################
-    for p in trainer.actor.student_net.bb_regressor.parameters():
+    # for p in trainer.actor.student_net.bb_regressor.parameters():
+    #     p.requires_grad_(True)
+    # for p in trainer.actor.student_net.feature_extractor.parameters():
+    #     p.requires_grad_(False)
+
+    # objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.01, w_cf=0., w_fd=0.)
+    # trainer.actor.objective = objective
+
+    # Optimizer
+    # trainer.optimizer = optim.Adam(trainer.actor.student_net.bb_regressor.parameters(), lr=1e-3)
+
+    # trainer.lr_scheduler = optim.lr_scheduler.StepLR(trainer.optimizer, step_size=15, gamma=0.2)
+
+    # Run training (set fail_safe=False if you are debugging)
+    # trainer.train(80, load_latest=False, fail_safe=True)
+
+    for p in student_net.bb_regressor.parameters():
         p.requires_grad_(True)
-    for p in trainer.actor.student_net.feature_extractor.parameters():
+    for p in student_net.feature_extractor.parameters():
         p.requires_grad_(False)
 
     objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.01, w_cf=0., w_fd=0.)
-    trainer.actor.objective = objective
+    actor = actors.AtomCompressionActor(student_net, teacher_net, objective)
+    optimizer = optim.Adam(student_net.bb_regressor.parameters(), lr=1e-3)
+    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.2)
+    trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
-    # Optimizer
-    trainer.optimizer = optim.Adam(trainer.actor.student_net.bb_regressor.parameters(), lr=1e-3)
-
-    trainer.lr_scheduler = optim.lr_scheduler.StepLR(trainer.optimizer, step_size=15, gamma=0.2)
-
-    # Run training (set fail_safe=False if you are debugging)
-    trainer.train(80, load_latest=False, fail_safe=True)
+    trainer.train(30, load_latest=True, fail_safe=True)
