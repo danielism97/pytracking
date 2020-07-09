@@ -265,7 +265,7 @@ class TrackingLoss(nn.Module):
         self.reg_loss = reg_loss
         self.match_layers = match_layers
         if match_layers is None:
-            self.match_layers = ['conv1', 'layer1', 'layer2', 'layer3']
+            self.match_layers = ['layer1', 'layer2', 'layer3']
 
     def forward(self, ref_feats_s, test_feats_s, target_bb, test_bb, **kwargs):
         """
@@ -284,7 +284,7 @@ class TrackingLoss(nn.Module):
         center_test_orig = test_bb[:,0:2] + 0.5 * test_bb[:,2:4]
 
         loss = 0.
-        for idx, layer in enumerate(self.match_layers, 1):
+        for idx, layer in enumerate(self.match_layers, 5-len(self.match_layers)):
             # calculate scale factor and approx. target patch size, define PrROIPool
             downsample = (1/2)**idx
 
@@ -386,7 +386,7 @@ class CFLoss(nn.Module):
         center_test_orig = test_bb[:,0:2] + 0.5 * test_bb[:,2:4]
 
         loss = 0.
-        for idx, layer in enumerate(self.match_layers, 1):
+        for idx, layer in enumerate(self.match_layers, 5-len(self.match_layers)):
             # calculate scale factor and approx. target patch size, define PrROIPool
             downsample = (1/2)**idx
             patch_sz = math.ceil(58 * downsample)
