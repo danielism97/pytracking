@@ -70,7 +70,7 @@ class TargetResponseLoss(nn.Module):
             center_test_orig = test_bb[:,0:2] + 0.5 * test_bb[:,2:4]
 
         loss = 0.
-        for idx, layer in enumerate(self.match_layers, 1):
+        for idx, layer in enumerate(self.match_layers, 5-len(self.match_layers)):
             # calculate scale factor and approx. target patch size, define PrROIPool
             downsample = (1/2)**idx
             patch_sz = math.ceil(58 * downsample)
