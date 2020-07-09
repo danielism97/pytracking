@@ -46,7 +46,7 @@ class TargetResponseLoss(nn.Module):
         self.match_layers = match_layers
         self.use_w = use_w
         if match_layers is None:
-            self.match_layers = ['layer1', 'layer2', 'layer3']
+            self.match_layers = ['layer2', 'layer3']
 
     def forward(self, ref_feats_s, test_feats_s, ref_feats_t, test_feats_t, target_bb, test_bb=None):
         """
