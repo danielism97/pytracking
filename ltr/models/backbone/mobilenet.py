@@ -172,9 +172,7 @@ class MobileNetV2(nn.Module):
             outputs[name] = x
         return len(output_layers) == len(outputs)
 
-    def _forward_impl(self, x, output_layers=None):
-        # This exists since TorchScript doesn't support inheritance, so the superclass method
-        # (this one) needs to have a name other than `forward` that can be accessed in a subclass        
+    def forward(self, x, output_layers=None):
 
         outputs = OrderedDict()
 
@@ -214,9 +212,6 @@ class MobileNetV2(nn.Module):
             return x
 
         raise ValueError('output_layer is wrong.')
-
-    def forward(self, x, output_layers=None):
-        return self._forward_impl(x, output_layers)
 
 
 def mobilenet_v2(output_layers=None, pretrained=False, progress=True, **kwargs):
