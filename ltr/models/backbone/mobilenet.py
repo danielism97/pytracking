@@ -142,12 +142,11 @@ class MobileNetV2(nn.Module):
         # make it nn.Sequential
         # self.features = nn.Sequential(*features)
         self.conv1 = nn.Sequential(*features[:1])
-        self.layer1 = nn.Sequential(*features[1:2])
-        self.layer2 = nn.Sequential(*features[2:4])
-        self.layer3 = nn.Sequential(*features[4:7])
-        self.layer4 = nn.Sequential(*features[7:11])
+        self.layer1 = nn.Sequential(*features[1:4])
+        self.layer2 = nn.Sequential(*features[4:7])
+        self.layer3 = nn.Sequential(*features[7:11])
         # for completeness
-        self.layer5 = nn.Sequential(*features[11:])
+        self.layer4 = nn.Sequential(*features[11:])
 
         # building classifier
         self.classifier = nn.Sequential(
@@ -203,11 +202,6 @@ class MobileNetV2(nn.Module):
             return outputs
 
         x = self.layer4(x)
-
-        if self._add_output_and_check('layer4', x, outputs, output_layers):
-            return outputs
-        
-        x = self.layer5(x)
         # Cannot use "squeeze" as batch-size can be 1 => must use reshape with x.shape[0]
         x = nn.functional.adaptive_avg_pool2d(x, 1).reshape(x.shape[0], -1)
         x = self.classifier(x)
@@ -234,7 +228,7 @@ def mobilenet_v2(output_layers=None, pretrained=False, progress=True, **kwargs):
         output_layers = ['default']
     else:
         for l in output_layers:
-            if l not in ['conv1', 'layer1', 'layer2', 'layer3', 'layer4', 'layer5']:
+            if l not in ['conv1', 'layer1', 'layer2', 'layer3', 'layer4']:
                 raise ValueError('Unknown layer: {}'.format(l))
 
 

@@ -134,12 +134,13 @@ class TSKDLoss(nn.Module):
     Objective for distillation.
     Returns TeacherSoftLoss + AdaptiveHardLoss + TargetResponseLoss
     """
-    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_tr=100., threshold_ah=0.005, use_w=True):
+    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_tr=100., threshold_ah=0.005, 
+                 match_layers=None, use_w=True):
         super().__init__()
         # subcomponent losses, can turn off adaptive hard by setting threshold to None
         self.teacher_soft_loss = TeacherSoftLoss(reg_loss)
         self.adaptive_hard_loss = AdaptiveHardLoss(reg_loss, threshold_ah)
-        self.target_response_loss = TargetResponseLoss(reg_loss, use_w=use_w)
+        self.target_response_loss = TargetResponseLoss(reg_loss, match_layers=match_layers, use_w=use_w)
         
         self.w_ts = w_ts
         self.w_ah = w_ah
@@ -425,13 +426,14 @@ class CFKDLoss(nn.Module):
     Objective for proposed compression method (adapted for iou net).
     Returns TeacherSoftLoss + AdaptiveHardLoss + FidelityLoss + CFLoss
     """
-    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_cf=1., w_fd=1., threshold_ah=0.005):
+    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_cf=1., w_fd=1., threshold_ah=0.005,
+                 match_layers=None):
         super().__init__()
         # subcomponent losses, can turn off adaptive hard by setting threshold to None
         self.teacher_soft_loss = TeacherSoftLoss(reg_loss)
         self.adaptive_hard_loss = AdaptiveHardLoss(reg_loss, threshold_ah)
         self.fidelity_loss = FidelityLoss(reg_loss, upsample=False)
-        self.cf_loss = CFLoss(reg_loss)
+        self.cf_loss = CFLoss(reg_loss, match_layers=match_layers)
         
         self.w_ts = w_ts
         self.w_ah = w_ah
