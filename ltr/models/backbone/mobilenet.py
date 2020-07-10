@@ -202,6 +202,10 @@ class MobileNetV2(nn.Module):
             return outputs
 
         x = self.layer4(x)
+
+        if self._add_output_and_check('layer4', x, outputs, output_layers):
+            return outputs
+
         # Cannot use "squeeze" as batch-size can be 1 => must use reshape with x.shape[0]
         x = nn.functional.adaptive_avg_pool2d(x, 1).reshape(x.shape[0], -1)
         x = self.classifier(x)
@@ -236,5 +240,9 @@ def mobilenet_v2(output_layers=None, pretrained=False, progress=True, **kwargs):
     if pretrained:
         state_dict = load_state_dict_from_url(model_urls['mobilenet_v2'],
                                               progress=progress)
-        model.load_state_dict(state_dict)
+        new_dict = dict()
+        for i, (key, val) in enumerate(state_dict.items()):
+            new_key = list(model.state_dict().keys())[i]
+            new_dict[new_key] = val
+        model.load_state_dict(new_dict, strict=True)
     return model
