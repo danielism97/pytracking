@@ -63,7 +63,7 @@ class ATOMnet(nn.Module):
         if layers is None:
             layers = self.bb_regressor_layer
         if mode == 'train':
-            layers = ['conv1', 'layer1', 'layer2', 'layer3']
+            layers = self.feature_extractor.output_layers
         return self.feature_extractor(im, layers)
 
     def extract_features(self, im, layers):
@@ -105,7 +105,8 @@ def atom_resnet50(iou_input_dim=(256,256), iou_inter_dim=(256,256), backbone_pre
 @model_constructor
 def atom_resnet18medium(iou_input_dim=(128,128), iou_inter_dim=(128,128), backbone_pretrained=False, cpu=False):
     # backbone
-    backbone_net = backbones.resnet18medium(pretrained=backbone_pretrained, inplanes=32)
+    backbone_net = backbones.resnet18medium(output_layers=['conv1','layer1','layer2','layer3'],
+                                            pretrained=backbone_pretrained, inplanes=32)
 
     # Bounding box regressor
     iou_predictor = bbmodels.AtomMediumIoUNet(input_dim=(64,128), 
@@ -124,7 +125,8 @@ def atom_resnet18medium(iou_input_dim=(128,128), iou_inter_dim=(128,128), backbo
 @model_constructor
 def atom_resnet18small(iou_input_dim=(64,64), iou_inter_dim=(64,64), backbone_pretrained=False, cpu=False):
     # backbone
-    backbone_net = backbones.resnet18small(pretrained=backbone_pretrained, inplanes=16)
+    backbone_net = backbones.resnet18small(output_layers=['conv1','layer1','layer2','layer3'],
+                                           pretrained=backbone_pretrained, inplanes=16)
 
     # Bounding box regressor
     iou_predictor = bbmodels.AtomSmallIoUNet(input_dim=(32,64), 
@@ -143,7 +145,8 @@ def atom_resnet18small(iou_input_dim=(64,64), iou_inter_dim=(64,64), backbone_pr
 @model_constructor
 def atom_resnet18tiny(iou_input_dim=(32,32), iou_inter_dim=(32,32), backbone_pretrained=False, cpu=False):
     # backbone
-    backbone_net = backbones.resnet18tiny(pretrained=backbone_pretrained, inplanes=8)
+    backbone_net = backbones.resnet18tiny(output_layers=['conv1','layer1','layer2','layer3'],
+                                          pretrained=backbone_pretrained, inplanes=8)
 
     # Bounding box regressor
     iou_predictor = bbmodels.AtomTinyIoUNet(input_dim=(16,32), 
@@ -155,6 +158,25 @@ def atom_resnet18tiny(iou_input_dim=(32,32), iou_inter_dim=(32,32), backbone_pre
     extractor_grad = False if cpu else True
 
     net = ATOMnet(feature_extractor=backbone_net, bb_regressor=iou_predictor, bb_regressor_layer=['layer2', 'layer3'],
+                  extractor_grad=extractor_grad, regressor_grad=True)
+
+    return net
+
+
+@model_constructor
+def atom_mobilenet(backbone_pretrained=True, cpu=False):
+    # backbone
+    backbone_net = backbones.mobilenet_v2(output_layers=['conv1','layer1','layer2','layer3','layer4'],
+                                          pretrained=backbone_pretrained)
+
+    # Bounding box regressor
+    iou_predictor = bbmodels.AtomSmallIoUNet(input_dim=(32,64), cpu=cpu)
+    
+    # if training CPU version, only need to fine-tune regressor
+    extractor_grad = False if cpu else True
+    extractor_grad = False if backbone_pretrained else extractor_grad
+
+    net = ATOMnet(feature_extractor=backbone_net, bb_regressor=iou_predictor, bb_regressor_layer=['layer3', 'layer4'],
                   extractor_grad=extractor_grad, regressor_grad=True)
 
     return net
