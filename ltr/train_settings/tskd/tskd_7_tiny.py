@@ -13,7 +13,7 @@ from ltr.admin import loading
 def run(settings):
     # Most common settings are assigned in the settings struct
     settings.description = 'distilled ATOM IoUNet with default settings according to the paper.'
-    settings.batch_size = 32
+    settings.batch_size = 64
     settings.num_workers = 8
     settings.print_interval = 1
     settings.normalize_mean = [0.485, 0.456, 0.406]
@@ -88,9 +88,9 @@ def run(settings):
     
     # Create student network and actor
     student_net = atom_models.atom_mobilenetsmall(backbone_pretrained=False)
-    objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_cf=1., w_fd=0.01,
-                                      match_layers=['conv1','layer1','layer2','layer3'])
-    actor = actors.AtomCompressionActor(student_net, teacher_net, objective)
+    objective = distillation.TSKDLoss(reg_loss=nn.MSELoss(),
+                                      match_layers=['layer2','layer3'])
+    actor = actors.AtomDistillationActor(student_net, teacher_net, objective)
 
     # Optimizer
     optimizer = optim.Adam([{'params': actor.student_net.feature_extractor.parameters()},
