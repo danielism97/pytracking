@@ -87,7 +87,7 @@ def run(settings):
     print('*******************Teacher net loaded successfully*******************')
     
     # Create student network and actor
-    student_net = atom_models.atom_mobilenet(backbone_pretrained=False)
+    student_net = atom_models.atom_mobilenetsmall(backbone_pretrained=False)
     objective = distillation.TSKDLoss(reg_loss=nn.MSELoss(),
                                       match_layers=['conv1','layer1','layer2','layer3'])
     actor = actors.AtomDistillationActor(student_net, teacher_net, objective)
