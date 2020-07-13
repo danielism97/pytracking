@@ -198,7 +198,7 @@ class TSsKDLoss(nn.Module):
 
 
 class FidelityLoss(nn.Module):
-    def __init__(self, reg_loss=nn.MSELoss(), match_layers=None, upsample=False):
+    def __init__(self, reg_loss=nn.MSELoss(), upsample=False, match_layers=None):
         super().__init__()
         self.reg_loss = reg_loss
         self.match_layers = match_layers
@@ -427,12 +427,12 @@ class CFKDLoss(nn.Module):
     Returns TeacherSoftLoss + AdaptiveHardLoss + FidelityLoss + CFLoss
     """
     def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_cf=1., w_fd=1., threshold_ah=0.005,
-                 match_layers=None):
+                 match_layers=None, fd_layers=None):
         super().__init__()
         # subcomponent losses, can turn off adaptive hard by setting threshold to None
         self.teacher_soft_loss = TeacherSoftLoss(reg_loss)
         self.adaptive_hard_loss = AdaptiveHardLoss(reg_loss, threshold_ah)
-        self.fidelity_loss = FidelityLoss(reg_loss, upsample=False)
+        self.fidelity_loss = FidelityLoss(reg_loss, upsample=False, match_layers=fd_layers)
         self.cf_loss = CFLoss(reg_loss, match_layers=match_layers)
         
         self.w_ts = w_ts
