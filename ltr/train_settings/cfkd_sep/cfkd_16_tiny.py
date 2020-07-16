@@ -95,7 +95,8 @@ def run(settings):
     for p in student_net.bb_regressor.parameters():
         p.requires_grad_(False)
     
-    objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_ts=0., w_ah=0., w_cf=0.01, w_fd=100.)
+    objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_ts=0., w_ah=0., w_cf=0.01, w_fd=100.,
+                                      match_layers=['conv1','layer1','layer2','layer3'])
     actor = actors.AtomCompressionActor(student_net, teacher_net, objective)
 
     # Optimizer
