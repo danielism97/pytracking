@@ -366,6 +366,7 @@ class CFLoss(nn.Module):
         self.match_layers = match_layers
         if match_layers is None:
             self.match_layers = ['layer1', 'layer2', 'layer3']
+        self.downsample = {'conv1': 0.5, 'layer1': 0.5**2, 'layer2': 0.5**3, 'layer3': 0.5**4}
 
     def forward(self, ref_feats_s, test_feats_s, target_bb, test_bb, **kwargs):
         """
@@ -387,9 +388,9 @@ class CFLoss(nn.Module):
         center_test_orig = test_bb[:,0:2] + 0.5 * test_bb[:,2:4]
 
         loss = 0.
-        for idx, layer in enumerate(self.match_layers, 5-len(self.match_layers)):
+        for layer in self.match_layers:
             # calculate scale factor and approx. target patch size, define PrROIPool
-            downsample = (1/2)**idx
+            downsample = self.downsample[layer]
             patch_sz = math.ceil(58 * downsample)
             patch_sz = patch_sz + 1 if (patch_sz % 2) == 0 else patch_sz
 
