@@ -13,7 +13,7 @@ from ltr.admin import loading
 def run(settings):
     # Most common settings are assigned in the settings struct
     settings.description = 'distilled ATOM IoUNet with default settings according to the paper.'
-    settings.batch_size = 64
+    settings.batch_size = 32
     settings.num_workers = 8
     settings.print_interval = 1
     settings.normalize_mean = [0.485, 0.456, 0.406]

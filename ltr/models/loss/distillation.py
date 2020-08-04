@@ -431,8 +431,8 @@ class CFKDLoss(nn.Module):
                  match_layers=None, fd_layers=None):
         super().__init__()
         # subcomponent losses, can turn off adaptive hard by setting threshold to None
-        self.teacher_soft_loss = TeacherSoftLoss(reg_loss)
-        self.adaptive_hard_loss = AdaptiveHardLoss(reg_loss, threshold_ah)
+        self.teacher_soft_loss = TeacherSoftLoss(nn.SmoothL1Loss())
+        self.adaptive_hard_loss = AdaptiveHardLoss(nn.SmoothL1Loss(), threshold_ah)
         self.fidelity_loss = FidelityLoss(reg_loss, upsample=False, match_layers=fd_layers)
         self.cf_loss = CFLoss(reg_loss, match_layers=match_layers)
         

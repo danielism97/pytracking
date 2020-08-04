@@ -87,13 +87,15 @@ def run(settings):
     print('*******************Teacher net loaded successfully*******************')
     
     # Create student network and actor
-    student_net = atom_models.atom_mobilenetsmall(backbone_pretrained=False)
-    objective = distillation.TSKDLoss(reg_loss=nn.MSELoss(),
-                                      match_layers=['layer2','layer3'])
-    actor = actors.AtomDistillationActor(student_net, teacher_net, objective)
+    student_net = atom_models.atom_mobilenetsmall(backbone_pretrained=True)
+    for p in student_net.feature_extractor.parameters():
+        p.requires_grad_(True)
+    objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_cf=0.01, w_fd=100,
+                                      match_layers=['conv1','layer1','layer2','layer3'])
+    actor = actors.AtomCompressionActor(student_net, teacher_net, objective)
 
     # Optimizer
-    optimizer = optim.Adam([{'params': actor.student_net.feature_extractor.parameters()},
+    optimizer = optim.Adam([{'params': actor.student_net.feature_extractor.parameters(), 'lr': 1e-3},
                             {'params': actor.student_net.bb_regressor.parameters()}], lr=1e-2)
     lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.1)
 

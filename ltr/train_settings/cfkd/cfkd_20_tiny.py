@@ -66,7 +66,7 @@ def run(settings):
 
     # The sampler for training
     dataset_train = sampler.ATOMSampler([lasot_train, trackingnet_train, coco_train], [1,1,1],
-                                samples_per_epoch=1000*settings.batch_size, max_gap=50, processing=data_processing_train)
+                                samples_per_epoch=1500*settings.batch_size, max_gap=50, processing=data_processing_train)
 
     # The loader for training
     loader_train = LTRLoader('train', dataset_train, training=True, batch_size=settings.batch_size, num_workers=settings.num_workers,
@@ -88,9 +88,9 @@ def run(settings):
     
     # Create student network and actor
     student_net = atom_models.atom_mobilenetsmall(backbone_pretrained=False)
-    objective = distillation.TSKDLoss(reg_loss=nn.MSELoss(),
-                                      match_layers=['layer2','layer3'])
-    actor = actors.AtomDistillationActor(student_net, teacher_net, objective)
+    objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_cf=0.01, w_fd=100,
+                                      match_layers=['conv1','layer1'])
+    actor = actors.AtomCompressionActor(student_net, teacher_net, objective)
 
     # Optimizer
     optimizer = optim.Adam([{'params': actor.student_net.feature_extractor.parameters()},
