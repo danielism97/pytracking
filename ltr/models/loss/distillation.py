@@ -207,9 +207,12 @@ class FidelityLoss(nn.Module):
             self.match_layers = ['layer2', 'layer3']
 
         # TODO: fix the second dim for compression loss
-        self.upsample_filter = torch.empty((256, 64, 1, 1)).cuda()
+        self.upsample_filter = dict()
+        self.upsample_filter['layer2'] = torch.empty((128, 32, 1, 1)).cuda()
+        self.upsample_filter['layer3'] = torch.empty((256, 64, 1, 1)).cuda()
         if upsample:
-            nn.init.xavier_normal_(self.upsample_filter)
+            nn.init.xavier_normal_(self.upsample_filter['layer2'])
+            nn.init.xavier_normal_(self.upsample_filter['layer3'])
 
     def forward(self, ref_feats_s, test_feats_s, ref_feats_t, test_feats_t, target_bb, **kwargs):
         """
@@ -231,8 +234,8 @@ class FidelityLoss(nn.Module):
 
             if self.upsample:
                 # upsample student features
-                ref_feat_s_t = F.conv2d(ref_feat_s, self.upsample_filter)
-                test_feat_s_t = F.conv2d(test_feat_s, self.upsample_filter)
+                ref_feat_s_t = F.conv2d(ref_feat_s, self.upsample_filter[layer])
+                test_feat_s_t = F.conv2d(test_feat_s, self.upsample_filter[layer])
 
                 # match ref patch feat
                 loss += self.reg_loss(ref_feat_s_t, ref_feat_t)
