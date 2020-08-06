@@ -92,7 +92,8 @@ def atom_resnet18(iou_input_dim=(256,256), iou_inter_dim=(256,256), backbone_pre
 @model_constructor
 def atom_resnet50(iou_input_dim=(256,256), iou_inter_dim=(256,256), backbone_pretrained=True):
     # backbone
-    backbone_net = backbones.resnet50(pretrained=backbone_pretrained)
+    backbone_net = backbones.resnet50(output_layers=['conv1','layer1','layer2','layer3'],
+                                      pretrained=backbone_pretrained)
 
     # Bounding box regressor
     iou_predictor = bbmodels.AtomIoUNet(input_dim=(4*128,4*256), pred_input_dim=iou_input_dim, pred_inter_dim=iou_inter_dim)

@@ -625,3 +625,89 @@ def sample_box_gmm(mean_box, proposal_sigma, gt_sigma=None, num_samples=1, add_m
         gt_density = torch.cat((torch.Tensor([1]), gt_density))
 
     return proposals, proposal_density, gt_density
+
+
+def x0y0wh2cxcywh(boxes, stacked=False):
+    """(x1, y1,w, h) -> (cx, cy, w, h)"""
+    x1, y1, w, h = boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3]
+    cx = x1 + 0.5 * w
+    cy = y1 + 0.5 * h
+    if stacked:
+        return torch.stack([cx, cy, w, h], dim=1)
+    else:
+        return cx, cy, w, h
+
+def get_reg(reference, proposals, weights=(1.0, 1.0, 1.0, 1.0)):
+   
+    ex_ctr_x, ex_ctr_y, ex_widths, ex_heights = x0y0wh2cxcywh(proposals)
+    gt_ctr_x, gt_ctr_y, gt_widths, gt_heights = x0y0wh2cxcywh(reference)
+
+    wx, wy, ww, wh = weights
+    offset_dx = wx * (gt_ctr_x - ex_ctr_x) / ex_widths
+    offset_dy = wy * (gt_ctr_y - ex_ctr_y) / ex_heights
+    offset_dw = ww * torch.log(gt_widths / ex_widths)
+    offset_dh = wh * torch.log(gt_heights / ex_heights)
+    offset = torch.stack((offset_dx, offset_dy, offset_dw, offset_dh), dim=1)
+    return offset
+
+def perturb_box2(box, min_iou=0.5, sigma_factor=0.1):
+    """ Perturb the input box by adding gaussian noise to the co-ordinates
+
+     args:
+        box - input box
+        min_iou - minimum IoU overlap between input box and the perturbed box
+        sigma_factor - amount of perturbation, relative to the box size. Can be either a single element, or a list of
+                        sigma_factors, in which case one of them will be uniformly sampled. Further, each of the
+                        sigma_factor element can be either a float, or a tensor
+                        of shape (4,) specifying the sigma_factor per co-ordinate
+
+    returns:
+        torch.Tensor - the perturbed box
+    """
+
+    if isinstance(sigma_factor, list):
+        # If list, sample one sigma_factor as current sigma factor
+        c_sigma_factor = random.choice(sigma_factor)
+    else:
+        c_sigma_factor = sigma_factor
+
+    if not isinstance(c_sigma_factor, torch.Tensor):
+        c_sigma_factor = c_sigma_factor * torch.ones(4)
+
+    perturb_factor = torch.sqrt(box[2]*box[3])*c_sigma_factor
+
+    # multiple tries to ensure that the perturbed box has iou > min_iou with the input box
+    for i_ in range(100):
+        c_x = box[0] + 0.5*box[2]
+        c_y = box[1] + 0.5 * box[3]
+        c_x_per = gauss(c_x, perturb_factor[0])
+        c_y_per = gauss(c_y, perturb_factor[1])
+
+        w_per = gauss(box[2], perturb_factor[2])
+        h_per = gauss(box[3], perturb_factor[3])
+
+        if w_per <= 1:
+            w_per = box[2]*rand_uniform(0.15, 0.5)
+
+        if h_per <= 1:
+            h_per = box[3]*rand_uniform(0.15, 0.5)
+
+        box_per = torch.Tensor([c_x_per - 0.5*w_per, c_y_per - 0.5*h_per, w_per, h_per]).round()
+
+        if box_per[2] <= 1:
+            box_per[2] = box[2]*rand_uniform(0.15, 0.5)
+
+        if box_per[3] <= 1:
+            box_per[3] = box[3]*rand_uniform(0.15, 0.5)
+
+        box_iou = iou(box.view(1, 4), box_per.view(1, 4))
+        reg = get_reg(box.view(1, 4), box_per.view(1, 4))
+
+        # if there is sufficient overlap, return
+        if box_iou > min_iou:
+            return box_per, reg
+
+        # else reduce the perturb factor
+        perturb_factor *= 0.9
+
+    return box_per, reg
