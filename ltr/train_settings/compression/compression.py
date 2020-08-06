@@ -9,10 +9,11 @@ import ltr.data.transforms as tfm
 from ltr.models.loss import distillation
 from ltr.admin import loading
 
+
 def run(settings):
     # Most common settings are assigned in the settings struct
-    settings.description = 'ATOM distillation - backbone and regressor separately'
-    settings.batch_size = 64
+    settings.description = 'distilled ATOM IoUNet with default settings according to the paper.'
+    settings.batch_size = 32
     settings.num_workers = 8
     settings.print_interval = 1
     settings.normalize_mean = [0.485, 0.456, 0.406]
@@ -79,25 +80,21 @@ def run(settings):
     loader_val = LTRLoader('val', dataset_val, training=False, batch_size=settings.batch_size, num_workers=settings.num_workers,
                            shuffle=False, drop_last=True, epoch_interval=5, stack_dim=1)
 
-    # The loader for validation
-    loader_val = LTRLoader('val', dataset_val, training=False, batch_size=settings.batch_size, num_workers=settings.num_workers,
-                           shuffle=False, drop_last=True, epoch_interval=5, stack_dim=1)
-
     # Load teacher network
     teacher_net = atom_models.atom_resnet18(backbone_pretrained=True)
-    teacher_path = '/content/pytracking/pytracking/networks/atom_default.pth'
+    teacher_path = '/home/ddanier/pytracking/pytracking/networks/atom_default.pth'
     teacher_net = loading.load_weights(teacher_net, teacher_path, strict=True)
     print('*******************Teacher net loaded successfully*******************')
     
     # Create student network and actor
-    student_net = atom_models.atom_resnet18tiny(backbone_pretrained=False)
-    objective = distillation.CompressionLoss(reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_track=100., w_fd=0.01, threshold_ah=0.005)
+    student_net = atom_models.atom_mobilenetsmall(backbone_pretrained=False)
+    objective = distillation.CompressionLoss()
     actor = actors.AtomCompressionActor(student_net, teacher_net, objective)
 
     # Optimizer
     optimizer = optim.Adam([{'params': actor.student_net.feature_extractor.parameters()},
-                            {'params': actor.student_net.bb_regressor.parameters()}], lr=1e-3)
-    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.2)
+                            {'params': actor.student_net.bb_regressor.parameters()}], lr=1e-2)
+    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.1)
 
     # Create trainer
     trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)

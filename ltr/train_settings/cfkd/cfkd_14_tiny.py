@@ -89,7 +89,7 @@ def run(settings):
     # Create student network and actor
     student_net = atom_models.atom_mobilenetsmall(backbone_pretrained=False)
     objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_cf=0.1, w_fd=100,
-                                      match_layers=['conv1','layer1','layer2','layer3'])
+                                      cf_layers=['conv1','layer1','layer2','layer3'])
     actor = actors.AtomCompressionActor(student_net, teacher_net, objective)
 
     # Optimizer

@@ -87,20 +87,14 @@ def run(settings):
     print('*******************Teacher net loaded successfully*******************')
     
     # Create student network and actor
-    student_net = atom_models.atom_mobilenetsmall(backbone_pretrained=False)
-
-    ##########################################################
-    ### Distil backbone first, turn off grad for regressor ###
-    ##########################################################
-    for p in student_net.bb_regressor.parameters():
-        p.requires_grad_(False)
-    
-    objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_ts=0., w_ah=0., w_cf=0.01, w_fd=100.,
+    student_net = atom_models.atom_resnet18tiny(backbone_pretrained=False)
+    objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_cf=0.01, w_fd=100,
                                       cf_layers=['conv1','layer1','layer2','layer3'])
     actor = actors.AtomCompressionActor(student_net, teacher_net, objective)
 
     # Optimizer
-    optimizer = optim.Adam(actor.student_net.feature_extractor.parameters(), lr=1e-2)
+    optimizer = optim.Adam([{'params': actor.student_net.feature_extractor.parameters()},
+                            {'params': actor.student_net.bb_regressor.parameters()}], lr=1e-2)
     lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.1)
 
     # Create trainer
@@ -108,22 +102,3 @@ def run(settings):
 
     # Run training (set fail_safe=False if you are debugging)
     trainer.train(50, load_latest=False, fail_safe=True)
-
-    ########################################################
-    ## Distil regressor next, turn off grad for backbone ###
-    ########################################################
-    for p in trainer.actor.student_net.bb_regressor.parameters():
-        p.requires_grad_(True)
-    for p in trainer.actor.student_net.feature_extractor.parameters():
-        p.requires_grad_(False)
-
-    objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_cf=0., w_fd=0.)
-    trainer.actor.objective = objective
-
-    # Optimizer
-    trainer.optimizer = optim.Adam(trainer.actor.student_net.bb_regressor.parameters(), lr=1e-2)
-
-    trainer.lr_scheduler = optim.lr_scheduler.StepLR(trainer.optimizer, step_size=15, gamma=0.1)
-
-    # Run training (set fail_safe=False if you are debugging)
-    trainer.train(100, load_latest=False, fail_safe=True)

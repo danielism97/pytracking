@@ -108,8 +108,8 @@ def run_sequence(seq: Sequence, tracker: Tracker, debug=False, visdom_info=None)
         exec_time = sum([sum(times.values()) for times in output['time']])
         num_frames = len(output['time'])
     else:
-        exec_time = sum(output['time'])
-        num_frames = len(output['time'])
+        exec_time = sum(output['time'][1:])
+        num_frames = len(output['time'][1:])
 
     print('FPS: {}'.format(num_frames / exec_time))
 

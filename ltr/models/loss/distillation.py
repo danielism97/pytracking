@@ -207,7 +207,7 @@ class FidelityLoss(nn.Module):
             self.match_layers = ['layer2', 'layer3']
 
         # TODO: fix the second dim for compression loss
-        self.upsample_filter = torch.empty((256, 32, 1, 1)).cuda()
+        self.upsample_filter = torch.empty((256, 64, 1, 1)).cuda()
         if upsample:
             nn.init.xavier_normal_(self.upsample_filter)
 
@@ -325,11 +325,11 @@ class CompressionLoss(nn.Module):
     Objective for compression method (adapted for iou net).
     Returns TeacherSoftLoss + AdaptiveHardLoss + FidelityLoss + TrackingLoss
     """
-    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=1., w_track=100., w_fd=0.01, threshold_ah=0.005):
+    def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_track=100., w_fd=0.01, threshold_ah=0.005):
         super().__init__()
         # subcomponent losses, can turn off adaptive hard by setting threshold to None
-        self.teacher_soft_loss = TeacherSoftLoss(reg_loss)
-        self.adaptive_hard_loss = AdaptiveHardLoss(reg_loss, threshold_ah)
+        self.teacher_soft_loss = TeacherSoftLoss(nn.SmoothL1Loss())
+        self.adaptive_hard_loss = AdaptiveHardLoss(nn.SmoothL1Loss(), threshold_ah)
         self.fidelity_loss = FidelityLoss(reg_loss, upsample=True)
         self.tracking_loss = TrackingLoss(reg_loss)
         
@@ -365,7 +365,7 @@ class CFLoss(nn.Module):
         self.reg_loss = reg_loss
         self.match_layers = match_layers
         if match_layers is None:
-            self.match_layers = ['layer1', 'layer2', 'layer3']
+            self.match_layers = ['conv1', 'layer1', 'layer2', 'layer3']
         self.downsample = {'conv1': 0.5, 'layer1': 0.5**2, 'layer2': 0.5**3, 'layer3': 0.5**4}
 
     def forward(self, ref_feats_s, test_feats_s, target_bb, test_bb, **kwargs):
@@ -428,13 +428,13 @@ class CFKDLoss(nn.Module):
     Returns TeacherSoftLoss + AdaptiveHardLoss + FidelityLoss + CFLoss
     """
     def __init__(self, reg_loss=nn.MSELoss(), w_ts=1., w_ah=0.1, w_cf=1., w_fd=1., threshold_ah=0.005,
-                 match_layers=None, fd_layers=None):
+                 cf_layers=None, fd_layers=None):
         super().__init__()
         # subcomponent losses, can turn off adaptive hard by setting threshold to None
         self.teacher_soft_loss = TeacherSoftLoss(nn.SmoothL1Loss())
         self.adaptive_hard_loss = AdaptiveHardLoss(nn.SmoothL1Loss(), threshold_ah)
         self.fidelity_loss = FidelityLoss(reg_loss, upsample=False, match_layers=fd_layers)
-        self.cf_loss = CFLoss(reg_loss, match_layers=match_layers)
+        self.cf_loss = CFLoss(reg_loss, match_layers=cf_layers)
         
         self.w_ts = w_ts
         self.w_ah = w_ah

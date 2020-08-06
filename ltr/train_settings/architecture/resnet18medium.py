@@ -13,7 +13,7 @@ from ltr.admin import loading
 def run(settings):
     # Most common settings are assigned in the settings struct
     settings.description = 'distilled ATOM IoUNet with default settings according to the paper.'
-    settings.batch_size = 64
+    settings.batch_size = 32
     settings.num_workers = 8
     settings.print_interval = 1
     settings.normalize_mean = [0.485, 0.456, 0.406]
@@ -87,17 +87,18 @@ def run(settings):
     print('*******************Teacher net loaded successfully*******************')
     
     # Create student network and actor
-    student_net = atom_models.atom_resnet18tiny(backbone_pretrained=False)
-    objective = distillation.TSKDLoss(reg_loss=nn.MSELoss(), w_tr=0., threshold_ah=0.005)
-    actor = actors.AtomDistillationActor(student_net, teacher_net, objective)
+    student_net = atom_models.atom_resnet18medium(backbone_pretrained=False)
+    objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_cf=0.01, w_fd=100,
+                                      cf_layers=['conv1','layer1','layer2','layer3'])
+    actor = actors.AtomCompressionActor(student_net, teacher_net, objective)
 
     # Optimizer
     optimizer = optim.Adam([{'params': actor.student_net.feature_extractor.parameters()},
-                            {'params': actor.student_net.bb_regressor.parameters()}], lr=1e-3)
-    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.2)
+                            {'params': actor.student_net.bb_regressor.parameters()}], lr=1e-2)
+    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.1)
 
     # Create trainer
     trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
     # Run training (set fail_safe=False if you are debugging)
-    trainer.train(50, load_latest=False, fail_safe=False)
+    trainer.train(50, load_latest=False, fail_safe=True)

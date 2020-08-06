@@ -13,7 +13,7 @@ from ltr.admin import loading
 def run(settings):
     # Most common settings are assigned in the settings struct
     settings.description = 'distilled ATOM IoUNet with default settings according to the paper.'
-    settings.batch_size = 64
+    settings.batch_size = 32
     settings.num_workers = 8
     settings.print_interval = 1
     settings.normalize_mean = [0.485, 0.456, 0.406]
@@ -66,7 +66,7 @@ def run(settings):
 
     # The sampler for training
     dataset_train = sampler.ATOMSampler([lasot_train, trackingnet_train, coco_train], [1,1,1],
-                                samples_per_epoch=1000*settings.batch_size, max_gap=50, processing=data_processing_train)
+                                samples_per_epoch=1500*settings.batch_size, max_gap=50, processing=data_processing_train)
 
     # The loader for training
     loader_train = LTRLoader('train', dataset_train, training=True, batch_size=settings.batch_size, num_workers=settings.num_workers,
@@ -87,17 +87,17 @@ def run(settings):
     print('*******************Teacher net loaded successfully*******************')
     
     # Create student network and actor
-    student_net = atom_models.atom_resnet18tiny(backbone_pretrained=False)
-    objective = distillation.TSKDLoss(reg_loss=nn.MSELoss(), threshold_ah=0.005, use_w=False)
-    actor = actors.AtomDistillationActor(student_net, teacher_net, objective)
+    student_net = atom_models.atom_mobilenetsmall(backbone_pretrained=False)
+    objective = distillation.CFKDLoss(reg_loss=nn.MSELoss(), w_cf=0., w_fd=0.)
+    actor = actors.AtomCompressionActor(student_net, teacher_net, objective)
 
     # Optimizer
     optimizer = optim.Adam([{'params': actor.student_net.feature_extractor.parameters()},
-                            {'params': actor.student_net.bb_regressor.parameters()}], lr=1e-3)
-    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.2)
+                            {'params': actor.student_net.bb_regressor.parameters()}], lr=1e-2)
+    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.1)
 
     # Create trainer
     trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
     # Run training (set fail_safe=False if you are debugging)
-    trainer.train(50, load_latest=False, fail_safe=False)
+    trainer.train(50, load_latest=False, fail_safe=True)
