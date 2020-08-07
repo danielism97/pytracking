@@ -89,7 +89,7 @@ def run(settings):
 
     # Load teacher network
     teacher_net = DR_models.drnet_resnet50(backbone_pretrained=True)
-    teacher_path = '/home/ddanier/pytracking/pytracking/networks/DRNet.pth'
+    teacher_path = '/home/ddanier/pytracking/pytracking/networks/drnet_res50.pth'
     teacher_net = loading.load_weights(teacher_net, teacher_path, strict=True)
     print('*******************Teacher net loaded successfully*******************')
     
