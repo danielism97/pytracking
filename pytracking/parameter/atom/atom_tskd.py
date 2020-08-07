@@ -42,7 +42,7 @@ def parameters():
 
     # Online model parameters
     deep_params.kernel_size = (4,4)     # Kernel size of filter
-    deep_params.compressed_dim = 64     # Dimension output of projection matrix
+    deep_params.compressed_dim = 32     # Dimension output of projection matrix
     deep_params.filter_reg = 1e-1       # Filter regularization factor
     deep_params.projection_reg = 1e-4   # Projection regularization factor
 
@@ -98,7 +98,7 @@ def parameters():
 
     # Setup the feature extractor (which includes the IoUNet)
     deep_fparams = FeatureParams(feature_params=[deep_params])
-    deep_feat = deep.ATOMMobileNetSmall(net_path='small.pth.tar', output_layers=['layer3'], fparams=deep_fparams, normalize_power=2)
+    deep_feat = deep.ATOMMobileNetSmall(net_path='atom_tskd.pth.tar', output_layers=['layer3'], fparams=deep_fparams, normalize_power=2)
     params.features = MultiResolutionExtractor([deep_feat])
 
     return params

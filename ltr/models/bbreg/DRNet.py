@@ -85,6 +85,20 @@ def drnet_resnet50(iou_input_dim=(512,1024), iou_inter_dim=(256,256), backbone_p
 
 
 @model_constructor
+def drnet_se_resnet50(iou_input_dim=(512,1024), iou_inter_dim=(256,256), backbone_pretrained=True):
+    # backbone
+    backbone_net = backbones.se_resnet50(pretrained=backbone_pretrained)
+
+    # Bounding box regressor
+    iou_predictor = bbmodels.DirectReg(input_dim=iou_input_dim, pred_inter_dim=iou_inter_dim)
+
+    net = DRNet(feature_extractor=backbone_net, bb_regressor=iou_predictor, bb_regressor_layer=['layer2', 'layer3'],
+                  extractor_grad=False)
+
+    return net
+
+
+@model_constructor
 def drnet_mobilenetsmall(backbone_pretrained=False):
     # backbone
     backbone_net = backbones.mobilenet_v2(output_layers=['conv1','layer1','layer2','layer3'],
