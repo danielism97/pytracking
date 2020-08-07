@@ -89,12 +89,12 @@ def parameters():
     
     # Setup the feature extractor (which includes the IoUNet)i ATOMnet_ep0026.pth
     deep_fparams = FeatureParams(feature_params=[deep_params])
-    deep_feat = deep.DRNetSE50(net_path='drnet_se_res50.pth', output_layers=['layer3'], fparams=deep_fparams,
-                                  normalize_power=2)
-    deep_feat2 = deep.DRNet50(net_path='drnet_res50.pth', output_layers=['layer3'], fparams=deep_fparams,
+    # deep_feat = deep.DRNetSE50(net_path='drnet_se_res50.pth', output_layers=['layer3'], fparams=deep_fparams,
+    #                               normalize_power=2)
+    deep_feat = deep.DRNet50(net_path='drnet_res50.pth', output_layers=['layer3'], fparams=deep_fparams,
                                   normalize_power=2)
    
-    params.features= MultiResolutionExtractor([deep_feat2,deep_feat])
+    params.features= MultiResolutionExtractor([deep_feat])
 
     params.vot_anno_conversion_type = 'preserve_area'
     return params
