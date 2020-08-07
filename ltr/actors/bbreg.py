@@ -289,3 +289,23 @@ class DRCompressionActor(BaseActor):
                  'Loss/iou': iou_loss}
 
         return loss, stats
+
+    def to(self, device):
+        """ Move the network to device
+        args:
+            device - device to use. 'cpu' or 'cuda'
+        """
+        self.student_net.to(device)
+        self.teacher_net.to(device)
+
+    def train(self, mode=True):
+        """ Set whether the network is in train mode.
+        args:
+            mode (True) - Bool specifying whether in training mode.
+        """
+        self.student_net.train(mode)
+        self.teacher_net.train(mode)
+
+    def eval(self):
+        """ Set network to eval mode"""
+        self.train(False)
