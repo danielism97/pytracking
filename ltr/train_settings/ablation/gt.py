@@ -4,14 +4,16 @@ from ltr.dataset import Lasot, TrackingNet, MSCOCOSeq
 from ltr.data import processing, sampler, LTRLoader
 import ltr.models.bbreg.atom as atom_models
 from ltr import actors
-from ltr.trainers import LTRTrainer
+from ltr.trainers import LTRDistillationTrainer
 import ltr.data.transforms as tfm
+from ltr.models.loss import distillation
+from ltr.admin import loading
 
 
 def run(settings):
     # Most common settings are assigned in the settings struct
-    settings.description = 'ATOM IoUNet with default settings according to the paper.'
-    settings.batch_size = 64
+    settings.description = 'distilled ATOM IoUNet with default settings according to the paper.'
+    settings.batch_size = 32
     settings.num_workers = 8
     settings.print_interval = 1
     settings.normalize_mean = [0.485, 0.456, 0.406]
@@ -64,7 +66,7 @@ def run(settings):
 
     # The sampler for training
     dataset_train = sampler.ATOMSampler([lasot_train, trackingnet_train, coco_train], [1,1,1],
-                                samples_per_epoch=1000*settings.batch_size, max_gap=50, processing=data_processing_train)
+                                samples_per_epoch=1500*settings.batch_size, max_gap=50, processing=data_processing_train)
 
     # The loader for training
     loader_train = LTRLoader('train', dataset_train, training=True, batch_size=settings.batch_size, num_workers=settings.num_workers,
@@ -78,18 +80,18 @@ def run(settings):
     loader_val = LTRLoader('val', dataset_val, training=False, batch_size=settings.batch_size, num_workers=settings.num_workers,
                            shuffle=False, drop_last=True, epoch_interval=5, stack_dim=1)
 
-    # Create network and actor
-    net = atom_models.atom_resnet18tiny(backbone_pretrained=False)
-    objective = nn.MSELoss()
+    # Create student network and actor
+    net = atom_models.atom_mobilenetsmall(backbone_pretrained=False)
+    objective = nn.SmoothL1Loss()
     actor = actors.AtomActor(net=net, objective=objective)
 
     # Optimizer
     optimizer = optim.Adam([{'params': actor.net.feature_extractor.parameters()},
-                            {'params': actor.net.bb_regressor.parameters()}], lr=1e-3)
-    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.2)
+                            {'params': actor.net.bb_regressor.parameters()}], lr=1e-2)
+    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.1)
 
     # Create trainer
-    trainer = LTRTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
+    trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
     # Run training (set fail_safe=False if you are debugging)
-    trainer.train(50, load_latest=False, fail_safe=False)
+    trainer.train(50, load_latest=False, fail_safe=True)
