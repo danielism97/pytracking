@@ -4,7 +4,7 @@ from ltr.dataset import Lasot, TrackingNet, MSCOCOSeq
 from ltr.data import processing, sampler, LTRLoader
 import ltr.models.bbreg.atom as atom_models
 from ltr import actors
-from ltr.trainers import LTRDistillationTrainer
+from ltr.trainers import LTRTrainer
 import ltr.data.transforms as tfm
 from ltr.models.loss import distillation
 from ltr.admin import loading
@@ -91,7 +91,7 @@ def run(settings):
     lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=15, gamma=0.1)
 
     # Create trainer
-    trainer = LTRDistillationTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
+    trainer = LTRTrainer(actor, [loader_train, loader_val], optimizer, settings, lr_scheduler)
 
     # Run training (set fail_safe=False if you are debugging)
     trainer.train(50, load_latest=False, fail_safe=True)
