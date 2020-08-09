@@ -191,7 +191,7 @@ def atom_mobilenet(backbone_pretrained=True, cpu=False):
                                           pretrained=backbone_pretrained)
 
     # Bounding box regressor
-    iou_predictor = bbmodels.AtomIoUNet(input_dim=(32,64), cpu=cpu)
+    iou_predictor = bbmodels.AtomSmallIoUNet(input_dim=(32,64), cpu=cpu)
     
     # if training CPU version, only need to fine-tune regressor
     extractor_grad = False if cpu else True
