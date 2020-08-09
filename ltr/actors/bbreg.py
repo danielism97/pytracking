@@ -254,12 +254,14 @@ class DRCompressionActor(BaseActor):
         loc_pred_s, ref_feats_s, test_feats_s = self.student_net(data['train_images'], 
                                                                  data['test_images'], 
                                                                  data['train_anno'], 
-                                                                 data['test_proposals'])
+                                                                 data['test_proposals'],
+                                                                 mode='train')
 
         loc_pred_t, ref_feats_t, test_feats_t = self.teacher_net(data['train_images'], 
                                                                  data['test_images'], 
                                                                  data['train_anno'], 
-                                                                 data['test_proposals'])
+                                                                 data['test_proposals'],
+                                                                 mode='train')
         
         loc_pred_s = loc_pred_s.view(-1, loc_pred_s.shape[2])
         loc_pred_t = loc_pred_t.view(-1, loc_pred_t.shape[2])
