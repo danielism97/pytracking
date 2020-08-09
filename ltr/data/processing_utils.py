@@ -4,6 +4,7 @@ import cv2 as cv
 import random
 import torch.nn.functional as F
 from .bounding_box_utils import rect_to_rel, rel_to_rect
+from random import gauss
 
 
 def sample_target(im, target_bb, search_area_factor, output_sz=None, mask=None):
