@@ -9,7 +9,7 @@ import ltr.models.bbreg.atom as atom_models
 import ltr.models.bbreg.DRNet as DR_models
 from ltr import actors
 from ltr.trainers import LTRDistillationTrainer
-import ltr.data.transforms as dltransforms
+import ltr.data.drtransforms as dltransforms
 from ltr.models.loss import distillation
 from ltr.admin import loading
 
