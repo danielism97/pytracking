@@ -25,7 +25,8 @@ def main():
 
     dataset = get_dataset(args.dataset)
 
-    plot_results(trackers, dataset, args.dataset, merge_results=True, plot_types=('success', 'prec'), 
+    report_name = args.tracker_param + '_' + args.dataset
+    plot_results(trackers, dataset, report_name, merge_results=True, plot_types=('success', 'prec'), 
              skip_missing_seq=True, force_evaluation=True, plot_bin_gap=0.05, 
              exclude_invalid_frames=False)
 
