@@ -7,7 +7,7 @@ import time
 from pytracking import dcf, fourier, TensorList, operation
 from pytracking.features.preprocessing import numpy_to_torch
 from pytracking.utils.plotting import show_tensor
-from pytracking.libs.optimization import GaussNewtonCG, ConjugateGradient, GradientDescentL2
+from pytracking.libs.droptimization import GaussNewtonCG, ConjugateGradient, GradientDescentL2
 from .optim import ConvProblem, FactorizedConvProblem
 from pytracking.features import augmentation
 import numpy as np
