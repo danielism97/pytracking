@@ -33,6 +33,7 @@ class DRNet(BaseTracker):
 
 
     def initialize(self, image, state, *args, **kwargs):
+        state = state['init_bbox']
 
         # Initialize some stuff
         self.frame_num = 1
@@ -143,6 +144,8 @@ class DRNet(BaseTracker):
         self.pos_drnet = self.pos.clone()
 
         self.time += time.time() - tic
+        out = {'time': time.time() - tic}
+        return out
 
 
     def init_optimization(self, train_x, init_y):
@@ -251,7 +254,7 @@ class DRNet(BaseTracker):
             del self.joint_problem, self.joint_optimizer
 
 
-    def track(self, image):
+    def track(self, image, info):
 
         self.frame_num += 1
 
@@ -329,11 +332,12 @@ class DRNet(BaseTracker):
         # Return new state
         new_state = torch.cat((self.pos[[1,0]] - (self.target_sz[[1,0]]-1)/2, self.target_sz[[1,0]]))
 
-        return new_state.tolist()
+        out = {'target_bbox': new_state.tolist()}
+        return out
 
 
     def apply_filter(self, sample_x: TensorList):
-        return TensorList([operation.conv2d(tmp_x, tmp_filter, mode='same') for tmp_x,tmp_filter in zip(sample_x,self.filter)])
+        return operation.conv2d(sample_x, self.filter, mode='same')
 
     def localize_target(self, scores_raw):
         # Weighted sum (if multiple features) with interpolation in fourier domain
@@ -444,7 +448,7 @@ class DRNet(BaseTracker):
 
 
     def extract_sample(self, im: torch.Tensor, pos: torch.Tensor, scales, sz: torch.Tensor):
-        return self.params.features.extract(im, pos, scales, sz)
+        return self.params.features.extract(im, pos, scales, sz)[0]
 
     def get_iou_features(self):
         return self.params.features.get_unique_attribute('iounet_features')
@@ -466,7 +470,7 @@ class DRNet(BaseTracker):
 
         if proj_matrix is None:
             proj_matrix = self.projection_matrix
-        return TensorList([self.projection_activation(operation.conv2d(tmp_x, tmp_p)) for tmp_x,tmp_p in zip(x,proj_matrix)])
+        return operation.conv2d(x, proj_matrix).apply(self.projection_activation)
 
     def init_learning(self):
         # Get window function
