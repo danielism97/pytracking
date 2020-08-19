@@ -254,7 +254,7 @@ class DRNet(BaseTracker):
             del self.joint_problem, self.joint_optimizer
 
 
-    def track(self, image, info):
+    def track(self, image, info=None):
 
         self.frame_num += 1
 
