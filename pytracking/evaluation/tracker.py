@@ -600,7 +600,7 @@ class Tracker:
         tracker = self.create_tracker(params)
         tracker.initialize_features()
 
-        import pytracking.evaluation.vot as vot
+        import pytracking.VOT.vot as vot
 
         def _convert_anno_to_list(vot_anno):
             vot_anno = [vot_anno[0][0][0], vot_anno[0][0][1], vot_anno[0][1][0], vot_anno[0][1][1],
