@@ -34,7 +34,7 @@ class AdaptiveHardLoss(nn.Module):
         loss_student = self.reg_loss(iou_student, iou_gt)
         gap = loss_teacher - loss_student
         
-        return loss_student if gap > self.threshold else 0.
+        return loss_student if gap < self.threshold else 0.
 
 class TargetResponseLoss(nn.Module):
     """
